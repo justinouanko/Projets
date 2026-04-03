@@ -932,13 +932,11 @@ async function loadStats() {
 // ─── HISTORIQUE ─────────────────────────────────
 async function loadHistory() {
   try {
-    const data = await fetch(`${API}/analyze`).catch(() => null);
-    // Fallback : on appelle /stats pour les recent analyses si l'endpoint existe
     const rows = await fetch(`${API}/history`).then(r => r.json()).catch(() => []);
 
     const tbody = document.getElementById('historyBody');
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted);padding:1.5rem;text-align:center">Aucune analyse pour l'instant.</td></tr>';
+      tbody.innerHTML = "<tr><td colspan='6' style='color:var(--muted);padding:1.5rem;text-align:center'>Aucune analyse pour l\u2019instant.</td></tr>";
       return;
     }
 
