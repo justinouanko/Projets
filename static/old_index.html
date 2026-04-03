@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CIAlert — Détecteur d'arnaques 🇨🇮</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── DESIGN SYSTEM ─── */
+    :root {
+      --bg:        #0a0a0f;
+      --surface:   #111118;
+      --border:    #1f1f2e;
+      --green:     #00ff88;
+      --orange:    #ff6b2b;
+      --red:       #ff2d55;
+      --yellow:    #ffd60a;
+      --muted:     #4a4a6a;
+      --text:      #e8e8f0;
+      --text-dim:  #7070a0;
+      --font-head: 'Syne', sans-serif;
+      --font-mono: 'Space Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── NOISE TEXTURE OVERLAY ─── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.35;
+    }
+
+    /* ─── GRID BACKGROUND ─── */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    /* ─── HEADER ─── */
+    header {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.5rem 2.5rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(10, 10, 15, 0.85);
+      backdrop-filter: blur(12px);
+    }
+
+    .logo {
+      font-family: var(--font-head);
+      font-weight: 800;
+      font-size: 1.6rem;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .logo span.ci { color: var(--orange); }
+    .logo span.alert { color: var(--green); }
+
+    .logo-flag {
+      width: 24px; height: 16px;
+      background: linear-gradient(90deg, #f77f00 33%, #fff 33% 66%, #009a44 66%);
+      border-radius: 2px;
+    }
+
+    .status-pill {
+      font-size: 0.7rem;
+      padding: 0.25rem 0.75rem;
+      border: 1px solid var(--green);
+      border-radius: 99px;
+      color: var(--green);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      animation: pulse-border 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-border {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(0,255,136,0.3); }
+      50%       { box-shadow: 0 0 0 6px rgba(0,255,136,0); }
+    }
+
+    /* ─── MAIN LAYOUT ─── */
+    main {
+      position: relative;
+      z-index: 10;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 3rem 2rem;
+    }
+
+    /* ─── HERO ─── */
+    .hero {
+      text-align: center;
+      margin-bottom: 3.5rem;
+      animation: fade-up 0.6s ease both;
+    }
+
+    .hero h1 {
+      font-family: var(--font-head);
+      font-weight: 800;
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      line-height: 1.1;
+      margin-bottom: 1rem;
+    }
+
+    .hero h1 em {
+      font-style: normal;
+      color: var(--orange);
+      position: relative;
+    }
+    .hero h1 em::after {
+      content: '';
+      position: absolute;
+      bottom: 2px; left: 0; right: 0;
+      height: 3px;
+      background: var(--orange);
+      opacity: 0.4;
+    }
+
+    .hero p {
+      color: var(--text-dim);
+      font-size: 0.9rem;
+      line-height: 1.7;
+      max-width: 500px;
+      margin: 0 auto 2rem;
+    }
+
+    /* ─── ANALYSE BOX ─── */
+    .analyze-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 2.5rem;
+      animation: fade-up 0.6s 0.1s ease both;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .analyze-box::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--orange), var(--green));
+    }
+
+    .analyze-box label {
+      display: block;
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.75rem;
+    }
+
+    textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      line-height: 1.6;
+      padding: 1rem;
+      resize: vertical;
+      min-height: 120px;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+
+    textarea:focus { border-color: var(--orange); }
+    textarea::placeholder { color: var(--muted); }
+
+    .input-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .type-select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      padding: 0.6rem 0.9rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .ai-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .ai-toggle input { accent-color: var(--green); }
+
+    .btn-analyze {
+      margin-left: auto;
+      background: var(--orange);
+      color: #000;
+      font-family: var(--font-head);
+      font-weight: 700;
+      font-size: 0.9rem;
+      padding: 0.7rem 1.8rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: 0.03em;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .btn-analyze:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(255,107,43,0.4);
+    }
+
+    .btn-analyze:active { transform: translateY(0); }
+    .btn-analyze:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* ─── RÉSULTAT ─── */
+    #result {
+      display: none;
+      animation: fade-up 0.4s ease both;
+    }
+
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 2.5rem;
+    }
+
+    .result-header {
+      padding: 1.5rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .verdict-icon {
+      font-size: 2.5rem;
+      line-height: 1;
+    }
+
+    .verdict-text h2 {
+      font-family: var(--font-head);
+      font-weight: 800;
+      font-size: 1.4rem;
+    }
+
+    .verdict-text p {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      margin-top: 0.2rem;
+    }
+
+    .result-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0;
+    }
+
+    .meta-item {
+      padding: 1.25rem 2rem;
+      border-right: 1px solid var(--border);
+    }
+    .meta-item:last-child { border-right: none; }
+
+    .meta-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.4rem;
+    }
+
+    .meta-value {
+      font-family: var(--font-head);
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+
+    .result-explanation {
+      padding: 1.5rem 2rem;
+      border-top: 1px solid var(--border);
+      background: rgba(0,0,0,0.2);
+    }
+
+    .result-explanation .label {
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.6rem;
+    }
+
+    .result-explanation p {
+      font-size: 0.85rem;
+      line-height: 1.7;
+      color: var(--text);
+    }
+
+    .flags-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .flag-chip {
+      background: rgba(255,107,43,0.1);
+      border: 1px solid rgba(255,107,43,0.3);
+      color: var(--orange);
+      font-size: 0.7rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      letter-spacing: 0.05em;
+    }
+
+    /* Risk level colors */
+    .risk-FAIBLE   { color: var(--green); }
+    .risk-MOYEN    { color: var(--yellow); }
+    .risk-ÉLEVÉ    { color: var(--orange); }
+    .risk-CRITIQUE { color: var(--red); }
+
+    .verdict-SCAM    { border-top: 3px solid var(--red); }
+    .verdict-SAFE    { border-top: 3px solid var(--green); }
+
+    /* ─── STATS GRID ─── */
+    .section-title {
+      font-family: var(--font-head);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+      animation: fade-up 0.6s 0.2s ease both;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+
+    .stat-card:hover { border-color: var(--orange); }
+
+    .stat-card .accent-line {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+    }
+
+    .stat-num {
+      font-family: var(--font-head);
+      font-size: 2.2rem;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 0.3rem;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    /* ─── HISTORY TABLE ─── */
+    .history-section {
+      animation: fade-up 0.6s 0.3s ease both;
+    }
+
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+    }
+
+    .history-table th {
+      text-align: left;
+      padding: 0.6rem 1rem;
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .history-table td {
+      padding: 0.9rem 1rem;
+      border-bottom: 1px solid rgba(31,31,46,0.5);
+      vertical-align: middle;
+    }
+
+    .history-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .history-table .text-cell {
+      max-width: 320px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-dim);
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .badge-scam { background: rgba(255,45,85,0.15); color: var(--red); border: 1px solid rgba(255,45,85,0.3); }
+    .badge-safe { background: rgba(0,255,136,0.1); color: var(--green); border: 1px solid rgba(0,255,136,0.2); }
+
+    /* ─── REPORT MODAL ─── */
+    .report-btn-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 1rem;
+    }
+
+    .btn-report {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 0.5rem 1.2rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .btn-report:hover { border-color: var(--red); color: var(--red); }
+
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 2rem;
+      width: min(500px, 92vw);
+      position: relative;
+      animation: scale-in 0.3s ease;
+    }
+
+    @keyframes scale-in {
+      from { transform: scale(0.93); opacity: 0; }
+      to   { transform: scale(1);    opacity: 1; }
+    }
+
+    .modal h3 {
+      font-family: var(--font-head);
+      font-size: 1.2rem;
+      font-weight: 800;
+      margin-bottom: 1.5rem;
+    }
+
+    .field { margin-bottom: 1rem; }
+    .field label { display: block; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 0.4rem; }
+    .field input, .field select, .field textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      padding: 0.65rem 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--orange); }
+
+    .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem; }
+
+    .btn-cancel {
+      background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+      font-family: var(--font-mono); font-size: 0.8rem; padding: 0.6rem 1.2rem;
+      border-radius: 6px; cursor: pointer;
+    }
+
+    .btn-submit {
+      background: var(--red); color: #fff;
+      font-family: var(--font-head); font-weight: 700; font-size: 0.85rem;
+      padding: 0.6rem 1.4rem; border: none; border-radius: 6px; cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-submit:hover { opacity: 0.85; }
+
+    .modal-close {
+      position: absolute; top: 1rem; right: 1.2rem;
+      background: none; border: none; color: var(--text-dim);
+      font-size: 1.2rem; cursor: pointer;
+    }
+
+    /* ─── TOAST ─── */
+    .toast {
+      position: fixed; bottom: 2rem; right: 2rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.9rem 1.4rem;
+      font-size: 0.82rem;
+      z-index: 200;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: transform 0.3s, opacity 0.3s;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { border-color: var(--green); color: var(--green); }
+    .toast.error   { border-color: var(--red);   color: var(--red); }
+
+    /* ─── LOADING SPINNER ─── */
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(0,0,0,0.3);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── ANIMATIONS ─── */
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── CONFIDENCE BAR ─── */
+    .conf-bar-wrap {
+      background: var(--bg);
+      border-radius: 99px;
+      height: 6px;
+      overflow: hidden;
+      margin-top: 0.4rem;
+    }
+    .conf-bar {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.8s cubic-bezier(0.16,1,0.3,1);
+    }
+
+    /* ─── FOOTER ─── */
+    footer {
+      position: relative; z-index: 10;
+      text-align: center;
+      padding: 2rem;
+      color: var(--muted);
+      font-size: 0.72rem;
+      border-top: 1px solid var(--border);
+    }
+
+    footer a { color: var(--orange); text-decoration: none; }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 640px) {
+      header { padding: 1rem 1.25rem; }
+      main { padding: 2rem 1.25rem; }
+      .input-row { flex-direction: column; }
+      .btn-analyze { width: 100%; }
+      .result-meta { grid-template-columns: 1fr 1fr; }
+      .meta-item { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── HEADER ─── -->
+<header>
+  <div class="logo">
+    <div class="logo-flag"></div>
+    <span class="ci">CI</span><span class="alert">Alert</span>
+  </div>
+  <div class="status-pill">● API connectée</div>
+</header>
+
+<!-- ─── MAIN ─── -->
+<main>
+
+  <!-- HERO -->
+  <div class="hero">
+    <h1>Protège-toi des<br><em>arnaques digitales</em></h1>
+    <p>Colle un SMS, un message WhatsApp, une URL ou un numéro suspect — l'IA analyse en quelques secondes.</p>
+  </div>
+
+  <!-- ANALYSE BOX -->
+  <div class="analyze-box">
+    <label>Contenu à analyser</label>
+    <textarea id="inputText" placeholder="Ex: « Félicitations ! Vous avez gagné 500 000 FCFA. Envoyez 5000F sur Orange Money au +225 07... »"></textarea>
+    <div class="input-row">
+      <select class="type-select" id="inputType">
+        <option value="text">Texte / Message</option>
+        <option value="sms">SMS</option>
+        <option value="url">URL / Lien</option>
+        <option value="phone">Numéro de téléphone</option>
+      </select>
+      <label class="ai-toggle">
+        <input type="checkbox" id="useAI" checked /> Analyse IA
+      </label>
+      <button class="btn-analyze" id="btnAnalyze" onclick="runAnalysis()">
+        Analyser →
+      </button>
+    </div>
+  </div>
+
+  <!-- RÉSULTAT -->
+  <div id="result">
+    <div class="result-card" id="resultCard">
+      <div class="result-header">
+        <div class="verdict-icon" id="verdictIcon">🔍</div>
+        <div class="verdict-text">
+          <h2 id="verdictTitle">—</h2>
+          <p id="verdictSub">—</p>
+        </div>
+      </div>
+      <div class="result-meta">
+        <div class="meta-item">
+          <div class="meta-label">Confiance</div>
+          <div class="meta-value" id="metaConf">—</div>
+          <div class="conf-bar-wrap"><div class="conf-bar" id="confBar"></div></div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Niveau de risque</div>
+          <div class="meta-value" id="metaRisk">—</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Catégorie</div>
+          <div class="meta-value" style="font-size:1rem" id="metaCat">—</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Traitement</div>
+          <div class="meta-value" id="metaMs">—</div>
+        </div>
+      </div>
+      <div class="result-explanation">
+        <div class="label">Explication</div>
+        <p id="explanationText">—</p>
+        <div class="flags-list" id="flagsList"></div>
+      </div>
+    </div>
+    <div class="report-btn-row">
+      <button class="btn-report" onclick="openReport()">⚠ Signaler manuellement</button>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="section-title">Statistiques globales</div>
+  <div class="stats-grid" id="statsGrid">
+    <div class="stat-card">
+      <div class="stat-num" id="statTotal">—</div>
+      <div class="stat-label">Analyses effectuées</div>
+      <div class="accent-line" style="background: linear-gradient(90deg, var(--orange), transparent)"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="statScams">—</div>
+      <div class="stat-label">Arnaques détectées</div>
+      <div class="accent-line" style="background: linear-gradient(90deg, var(--red), transparent)"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="statRate">—</div>
+      <div class="stat-label">Taux d'arnaque</div>
+      <div class="accent-line" style="background: linear-gradient(90deg, var(--yellow), transparent)"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="statReports">—</div>
+      <div class="stat-label">Signalements reçus</div>
+      <div class="accent-line" style="background: linear-gradient(90deg, var(--green), transparent)"></div>
+    </div>
+  </div>
+
+  <!-- HISTORIQUE -->
+  <div class="history-section">
+    <div class="section-title">Dernières analyses</div>
+    <div style="overflow-x:auto">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Contenu</th>
+            <th>Verdict</th>
+            <th>Risque</th>
+            <th>Catégorie</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody id="historyBody">
+          <tr><td colspan="6" style="color:var(--muted);padding:2rem;text-align:center">Chargement…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<!-- ─── FOOTER ─── -->
+<footer>
+  CIAlert v1.0 · Côte d'Ivoire 🇨🇮 · Propulsé par l'IA · <a href="/docs" target="_blank">API Docs</a>
+</footer>
+
+<!-- ─── MODAL SIGNALEMENT ─── -->
+<div class="modal-overlay" id="reportModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeReport()">✕</button>
+    <h3>⚠ Signaler une arnaque</h3>
+    <div class="field">
+      <label>Type de signalement</label>
+      <select id="reportType">
+        <option value="arnaque">Arnaque générale</option>
+        <option value="sms_frauduleux">SMS frauduleux</option>
+        <option value="faux_site">Faux site web</option>
+        <option value="autre">Autre</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Plateforme concernée</label>
+      <select id="reportPlatform">
+        <option value="">— Sélectionner —</option>
+        <option value="MTN">MTN Mobile Money</option>
+        <option value="Orange">Orange Money</option>
+        <option value="Wave">Wave</option>
+        <option value="WhatsApp">WhatsApp</option>
+        <option value="autre">Autre</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Montant escroqué (FCFA, optionnel)</label>
+      <input type="number" id="reportAmount" placeholder="Ex: 50000" />
+    </div>
+    <div class="field">
+      <label>Description complémentaire</label>
+      <textarea id="reportDesc" rows="3" placeholder="Décrivez ce qui s'est passé…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeReport()">Annuler</button>
+      <button class="btn-submit" onclick="submitReport()">Envoyer le signalement</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── TOAST ─── -->
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '';  // Même domaine, FastAPI sur /
+let lastAnalysisId = null;
+let lastInputText  = '';
+
+// ─── UTILS ─────────────────────────────────────
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('fr-FR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+}
+
+function riskColor(level) {
+  return { FAIBLE:'#00ff88', MOYEN:'#ffd60a', ÉLEVÉ:'#ff6b2b', CRITIQUE:'#ff2d55' }[level] || '#7070a0';
+}
+
+// ─── ANALYSE ────────────────────────────────────
+async function runAnalysis() {
+  const text   = document.getElementById('inputText').value.trim();
+  const type   = document.getElementById('inputType').value;
+  const useAI  = document.getElementById('useAI').checked;
+  const btn    = document.getElementById('btnAnalyze');
+
+  if (!text) { showToast('Colle un texte à analyser !', 'error'); return; }
+
+  lastInputText = text;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Analyse…';
+
+  try {
+    const res = await fetch(`${API}/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, input_type: type, use_ai: useAI })
+    });
+
+    if (!res.ok) throw new Error(`Erreur ${res.status}`);
+    const data = await res.json();
+
+    lastAnalysisId = data.analysis_id;
+    displayResult(data);
+    loadStats();
+    loadHistory();
+  } catch (e) {
+    showToast(`Erreur : ${e.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Analyser →';
+  }
+}
+
+function displayResult(d) {
+  const isScam = d.is_scam;
+  const card   = document.getElementById('resultCard');
+
+  card.className = `result-card ${isScam ? 'verdict-SCAM' : 'verdict-SAFE'}`;
+
+  document.getElementById('verdictIcon').textContent  = isScam ? '🚨' : '✅';
+  document.getElementById('verdictTitle').textContent = isScam ? 'ARNAQUE DÉTECTÉE' : 'Contenu sain';
+  document.getElementById('verdictSub').textContent   =
+    isScam ? `Niveau ${d.risk_level} — Ne pas donner suite !` : 'Aucun signal d\'arnaque détecté.';
+
+  const confPct = Math.round(d.confidence * 100);
+  document.getElementById('metaConf').textContent = `${confPct}%`;
+  const bar = document.getElementById('confBar');
+  bar.style.width = '0%';
+  bar.style.background = isScam ? 'var(--red)' : 'var(--green)';
+  setTimeout(() => bar.style.width = `${confPct}%`, 50);
+
+  const riskEl = document.getElementById('metaRisk');
+  riskEl.textContent = d.risk_level;
+  riskEl.className   = `meta-value risk-${d.risk_level}`;
+
+  document.getElementById('metaCat').textContent = d.scam_category
+    ? { broutage:'Broutage', mobile_money:'Mobile Money', phishing:'Phishing', autre:'Autre' }[d.scam_category] || d.scam_category
+    : '—';
+
+  document.getElementById('metaMs').textContent = `${d.processing_ms} ms`;
+  document.getElementById('explanationText').textContent =
+    d.explanation || 'Aucune explication disponible.';
+
+  const flagsList = document.getElementById('flagsList');
+  flagsList.innerHTML = '';
+  (d.rule_flags || []).forEach(f => {
+    const chip = document.createElement('span');
+    chip.className = 'flag-chip';
+    chip.textContent = f;
+    flagsList.appendChild(chip);
+  });
+
+  document.getElementById('result').style.display = 'block';
+  document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ─── STATS ──────────────────────────────────────
+async function loadStats() {
+  try {
+    const data = await fetch(`${API}/stats`).then(r => r.json());
+    document.getElementById('statTotal').textContent   = data.total_analyses ?? '—';
+    document.getElementById('statScams').textContent   = data.total_scams    ?? '—';
+    document.getElementById('statRate').textContent    = data.scam_rate != null ? `${data.scam_rate}%` : '—';
+    document.getElementById('statReports').textContent = data.total_reports   ?? '—';
+  } catch { /* silencieux */ }
+}
+
+// ─── HISTORIQUE ─────────────────────────────────
+async function loadHistory() {
+  try {
+    const data = await fetch(`${API}/analyze`).catch(() => null);
+    // Fallback : on appelle /stats pour les recent analyses si l'endpoint existe
+    const rows = await fetch(`${API}/history`).then(r => r.json()).catch(() => []);
+
+    const tbody = document.getElementById('historyBody');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted);padding:1.5rem;text-align:center">Aucune analyse pour l'instant.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td style="color:var(--muted);font-size:0.72rem">#${r.id}</td>
+        <td class="text-cell">${escapeHTML(r.input_text)}</td>
+        <td><span class="badge ${r.is_scam ? 'badge-scam' : 'badge-safe'}">${r.is_scam ? 'ARNAQUE' : 'SAIN'}</span></td>
+        <td style="color:${riskColor(r.risk_level)}">${r.risk_level}</td>
+        <td style="color:var(--text-dim)">${r.scam_category || '—'}</td>
+        <td style="color:var(--text-dim);font-size:0.72rem">${formatDate(r.created_at)}</td>
+      </tr>
+    `).join('');
+  } catch { /* silencieux */ }
+}
+
+function escapeHTML(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─── SIGNALEMENT ────────────────────────────────
+function openReport()  { document.getElementById('reportModal').classList.add('open'); }
+function closeReport() { document.getElementById('reportModal').classList.remove('open'); }
+
+async function submitReport() {
+  const body = {
+    text:            lastInputText || 'Signalement manuel',
+    report_type:     document.getElementById('reportType').value,
+    victim_platform: document.getElementById('reportPlatform').value || null,
+    victim_amount:   parseFloat(document.getElementById('reportAmount').value) || null,
+    description:     document.getElementById('reportDesc').value || null,
+    analysis_id:     lastAnalysisId || null,
+  };
+
+  try {
+    const res = await fetch(`${API}/report`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error();
+    closeReport();
+    showToast('Signalement envoyé — merci ! 🙏', 'success');
+    loadStats();
+  } catch {
+    showToast('Erreur lors du signalement.', 'error');
+  }
+}
+
+// ─── KEYBOARD SHORTCUT ──────────────────────────
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runAnalysis();
+});
+
+// ─── INIT ───────────────────────────────────────
+loadStats();
+loadHistory();
+</script>
+</body>
+</html>
