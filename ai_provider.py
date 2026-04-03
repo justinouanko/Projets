@@ -1,0 +1,182 @@
+"""
+CIAlert — ai_provider.py
+Couche IA interchangeable : Groq | Gemini | Claude.
+Change AI_PROVIDER dans .env pour switcher.
+"""
+
+import os
+import json
+import httpx
+from abc import ABC, abstractmethod
+from dotenv import load_dotenv
+
+load_dotenv()
+
+AI_PROVIDER = os.getenv("AI_PROVIDER", "groq").lower()
+
+SYSTEM_PROMPT = """Tu es CIAlert, un expert en cybersécurité spécialisé dans les arnaques digitales en Côte d'Ivoire.
+Analyse le texte fourni et réponds UNIQUEMENT en JSON valide avec cette structure exacte :
+{
+  "is_scam": true ou false,
+  "confidence": 0.0 à 1.0,
+  "category": "broutage" | "mobile_money" | "phishing" | "autre" | null,
+  "explanation": "Explication courte en français (max 2 phrases)"
+}
+Sois précis. Tiens compte du contexte ivoirien (Mobile Money, broutage, numéros +225)."""
+
+
+def _build_user_prompt(text: str, flags: list, rule_score: float) -> str:
+    return (
+        f"Texte à analyser :\n\"\"\"\n{text}\n\"\"\"\n\n"
+        f"Règles locales déclenchées : {flags}\n"
+        f"Score règles : {rule_score:.2f}\n\n"
+        "Donne ton analyse JSON."
+    )
+
+
+def _parse_ai_json(raw: str) -> dict:
+    """Parse la réponse JSON de l'IA, robuste aux backticks."""
+    clean = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    return json.loads(clean)
+
+
+# ─────────────────────────────────────────────
+# INTERFACE ABSTRAITE
+# ─────────────────────────────────────────────
+
+class AIProvider(ABC):
+    provider_name: str = "unknown"
+
+    @abstractmethod
+    async def analyze(self, text: str, flags: list, rule_score: float) -> dict:
+        """Retourne dict avec confidence, category, explanation."""
+        ...
+
+
+# ─────────────────────────────────────────────
+# GROQ (gratuit — défaut)
+# ─────────────────────────────────────────────
+
+class GroqProvider(AIProvider):
+    provider_name = "groq"
+
+    def __init__(self):
+        self.api_key = os.getenv("GROQ_API_KEY", "")
+        self.model   = os.getenv("GROQ_MODEL", "llama3-8b-8192")
+        self.url     = "https://api.groq.com/openai/v1/chat/completions"
+
+    async def analyze(self, text: str, flags: list, rule_score: float) -> dict:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                self.url,
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                json={
+                    "model": self.model,
+                    "messages": [
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user",   "content": _build_user_prompt(text, flags, rule_score)},
+                    ],
+                    "temperature": 0.1,
+                    "max_tokens":  300,
+                },
+            )
+            resp.raise_for_status()
+            raw = resp.json()["choices"][0]["message"]["content"]
+            data = _parse_ai_json(raw)
+            return {
+                "confidence":  float(data.get("confidence", rule_score)),
+                "category":    data.get("category"),
+                "explanation": data.get("explanation", ""),
+            }
+
+
+# ─────────────────────────────────────────────
+# GEMINI (gratuit — alternative)
+# ─────────────────────────────────────────────
+
+class GeminiProvider(AIProvider):
+    provider_name = "gemini"
+
+    def __init__(self):
+        self.api_key = os.getenv("GEMINI_API_KEY", "")
+        self.model   = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+        self.url     = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{self.model}:generateContent?key={self.api_key}"
+        )
+
+    async def analyze(self, text: str, flags: list, rule_score: float) -> dict:
+        prompt = SYSTEM_PROMPT + "\n\n" + _build_user_prompt(text, flags, rule_score)
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                self.url,
+                json={"contents": [{"parts": [{"text": prompt}]}]},
+            )
+            resp.raise_for_status()
+            raw = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+            data = _parse_ai_json(raw)
+            return {
+                "confidence":  float(data.get("confidence", rule_score)),
+                "category":    data.get("category"),
+                "explanation": data.get("explanation", ""),
+            }
+
+
+# ─────────────────────────────────────────────
+# CLAUDE (payant — meilleur)
+# ─────────────────────────────────────────────
+
+class ClaudeProvider(AIProvider):
+    provider_name = "claude"
+
+    def __init__(self):
+        self.api_key = os.getenv("CLAUDE_API_KEY", "")
+        self.model   = os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
+        self.url     = "https://api.anthropic.com/v1/messages"
+
+    async def analyze(self, text: str, flags: list, rule_score: float) -> dict:
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.post(
+                self.url,
+                headers={
+                    "x-api-key":         self.api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type":      "application/json",
+                },
+                json={
+                    "model":      self.model,
+                    "max_tokens": 300,
+                    "system":     SYSTEM_PROMPT,
+                    "messages":   [
+                        {"role": "user", "content": _build_user_prompt(text, flags, rule_score)}
+                    ],
+                },
+            )
+            resp.raise_for_status()
+            raw = resp.json()["content"][0]["text"]
+            data = _parse_ai_json(raw)
+            return {
+                "confidence":  float(data.get("confidence", rule_score)),
+                "category":    data.get("category"),
+                "explanation": data.get("explanation", ""),
+            }
+
+
+# ─────────────────────────────────────────────
+# FACTORY
+# ─────────────────────────────────────────────
+
+def get_ai_provider() -> AIProvider | None:
+    """Retourne le provider IA selon AI_PROVIDER dans .env."""
+    providers = {
+        "groq":   GroqProvider,
+        "gemini": GeminiProvider,
+        "claude": ClaudeProvider,
+    }
+    cls = providers.get(AI_PROVIDER)
+    if cls is None:
+        print(f"⚠️  Provider IA inconnu : '{AI_PROVIDER}'. Détection par règles uniquement.")
+        return None
+    instance = cls()
+    print(f"✅ Provider IA chargé : {instance.provider_name}")
+    return instance
