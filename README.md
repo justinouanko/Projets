@@ -58,8 +58,8 @@ Verdict : SAIN | FAIBLE | MOYEN | ÉLEVÉ | CRITIQUE
 ### 1. Cloner & installer
 
 ```bash
-git clone https://github.com/TON_USER/cialert.git
-cd cialert
+git clone https://github.com/justinouanko/Projets.git
+cd Projets
 pip install -r requirements.txt
 ```
 
@@ -198,7 +198,7 @@ railway up
 - [x] Base de données SQLite + stats
 - [x] Dashboard web
 - [x] Bot Telegram
-- [ ] Détection d'URLs malveillantes (VirusTotal API)
+- [x] Détection d'URLs malveillantes (VirusTotal API)
 - [ ] Intégration WhatsApp Business API
 - [ ] Application mobile Flutter
 - [ ] Partenariat PLCC / ARTCI
@@ -213,4 +213,4 @@ Pull requests bienvenues ! Pour les gros changements, ouvre d'abord une issue.
 
 ## 📄 Licence
 
-MIT — Fait avec ❤️ pour la Côte d'Ivoire 🇨🇮
+MIT — Fait avec le ❤️ pour la Côte d'Ivoire
