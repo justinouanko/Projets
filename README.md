@@ -1,4 +1,4 @@
-# 🇨🇮 CIAlert — Détecteur d'arnaques digitales
+# CIAlert : Détecteur d'arnaques digitales
 
 > Plateforme ivoirienne de détection d'arnaques propulsée par l'IA.  
 > Analyse SMS, liens, messages WhatsApp et numéros suspects en quelques secondes.
