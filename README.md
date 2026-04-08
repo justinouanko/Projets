@@ -14,7 +14,7 @@
 En Côte d'Ivoire, les arnaques digitales explosent : broutage, faux Mobile Money (MTN, Orange, Wave), SMS frauduleux… Aucune plateforme IA accessible au grand public n'existait pour aider les citoyens.
 
 CIAlert comble ce vide avec :
-- Une **API REST** rapide (FastAPI + SQLite)
+- Une **API REST** rapide (FastAPI + SQLite & PostgreSQL)
 - Un **dashboard web** moderne et mobile-friendly
 - Un **bot Telegram** pour analyser sans quitter son téléphone
 - Une **IA interchangeable** (Groq gratuit par défaut, Gemini, Claude)
@@ -28,7 +28,7 @@ cialert/
 ├── main.py          # Backend FastAPI (API REST)
 ├── agent.py         # Cerveau de détection (règles + IA)
 ├── ai_provider.py   # Couche IA interchangeable
-├── database.py      # SQLite : analyses, signalements, stats
+├── database.py      # SQLite & PostgreSQL : analyses, signalements, stats
 ├── bot.py           # Bot Telegram
 ├── static/
 │   └── index.html   # Dashboard web
