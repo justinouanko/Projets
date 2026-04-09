@@ -36,13 +36,8 @@
     }
 
     .masked-content {
-      color: var(--text-dim);
-      font-style: italic;
-    }
-    .mask-dots {
       color: var(--muted);
-      letter-spacing: 0.1em;
-      font-style: normal;
+      letter-spacing: 0.15em;
     }
 
 
@@ -969,14 +964,8 @@ function escapeHTML(str) {
 
 function maskIfSafe(text, isScam) {
   if (!text) return '—';
-  const escaped = escapeHTML(text);
-  if (!isScam) {
-    const words = text.trim().split(/\s+/);
-    const preview = escapeHTML(words.slice(0, 4).join(' '));
-    const suffix = words.length > 4 ? ' <span class="mask-dots">●●●</span>' : '';
-    return `<span class="masked-content">${preview}${suffix}</span>`;
-  }
-  return escaped;
+  if (!isScam) return '<span class="masked-content">••••••••••</span>';
+  return escapeHTML(text);
 }
 
 // ─── SIGNALEMENT ────────────────────────────────
