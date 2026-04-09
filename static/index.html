@@ -541,6 +541,40 @@
       color: var(--muted);
     }
 
+    /* ─── SHOW MORE ─── */
+    .threats-more {
+      display: none;
+      animation: fade-up 0.3s ease both;
+    }
+    .threats-more.open { display: block; }
+
+    .btn-show-more {
+      width: 100%;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 0.7rem 1rem;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      letter-spacing: 0.05em;
+      transition: border-color 0.2s, color 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn-show-more:hover { border-color: var(--orange); color: var(--orange); }
+
+    .btn-show-more .chevron {
+      display: inline-block;
+      transition: transform 0.25s;
+    }
+    .btn-show-more.open .chevron { transform: rotate(180deg); }
+
     /* ─── REPORT SECTION ─── */
     .report-section {
       margin-bottom: 3rem;
@@ -1089,17 +1123,36 @@ async function loadStats() {
 }
 
 // ─── MENACES ──────────────────────────────────────
+const RISK_ORDER = { CRITIQUE: 0, 'ÉLEVÉ': 1, MOYEN: 2 };
+
+function buildThreatCard(r) {
+  const excerpt = escapeHTML((r.input_text || '').substring(0, 100));
+  const confPct = r.confidence != null ? Math.round(r.confidence * 100) + '%' : '—';
+  const riskKey = r.risk_level || 'MOYEN';
+  return `
+    <div class="threat-card risk-${riskKey}">
+      <span class="threat-risk-badge risk-badge-${riskKey}">${riskKey}</span>
+      <div class="threat-content">
+        <div class="threat-excerpt">${excerpt || '<span style="color:var(--muted)">Contenu non disponible</span>'}</div>
+        <div class="threat-meta-row">
+          ${r.scam_category ? `<span class="threat-cat">${formatCategory(r.scam_category)}</span>` : ''}
+          <span class="threat-date">${formatDate(r.created_at)}</span>
+        </div>
+      </div>
+      <div class="threat-conf">${confPct}<span>confiance</span></div>
+    </div>`;
+}
+
 async function loadThreats() {
   try {
     const rows = await fetch(`${API}/history`).then(r => r.json()).catch(() => []);
 
-    // Filtrer : uniquement arnaques avec risque MOYEN, ÉLEVÉ ou CRITIQUE
-    const threats = rows.filter(r =>
-      r.is_scam && RISK_LEVELS_VISIBLE.includes(r.risk_level)
-    );
+    // Filtrer & trier par gravité décroissante
+    const threats = rows
+      .filter(r => r.is_scam && RISK_LEVELS_VISIBLE.includes(r.risk_level))
+      .sort((a, b) => (RISK_ORDER[a.risk_level] ?? 9) - (RISK_ORDER[b.risk_level] ?? 9));
 
-    const badge = document.getElementById('threatsCount');
-    badge.textContent = threats.length;
+    document.getElementById('threatsCount').textContent = threats.length;
 
     const container = document.getElementById('threatsList');
 
@@ -1112,29 +1165,35 @@ async function loadThreats() {
       return;
     }
 
-    container.innerHTML = threats.map(r => {
-      const excerpt = escapeHTML((r.input_text || '').substring(0, 100));
-      const confPct = r.confidence != null ? Math.round(r.confidence * 100) + '%' : '—';
-      const riskKey = r.risk_level || 'MOYEN';
+    const top  = threats.slice(0, 3);
+    const rest = threats.slice(3);
 
-      return `
-        <div class="threat-card risk-${riskKey}">
-          <span class="threat-risk-badge risk-badge-${riskKey}">${riskKey}</span>
-          <div class="threat-content">
-            <div class="threat-excerpt">${excerpt || '<span style="color:var(--muted)">Contenu non disponible</span>'}</div>
-            <div class="threat-meta-row">
-              ${r.scam_category ? `<span class="threat-cat">${formatCategory(r.scam_category)}</span>` : ''}
-              <span class="threat-date">${formatDate(r.created_at)}</span>
-            </div>
-          </div>
-          <div class="threat-conf">
-            ${confPct}
-            <span>confiance</span>
-          </div>
-        </div>`;
-    }).join('');
+    let html = top.map(buildThreatCard).join('');
 
+    if (rest.length) {
+      html += `
+        <div class="threats-more" id="threatsMore">
+          ${rest.map(buildThreatCard).join('')}
+        </div>
+        <button class="btn-show-more" id="btnShowMore" onclick="toggleMoreThreats()">
+          <span class="chevron">▾</span>
+          Voir ${rest.length} autre${rest.length > 1 ? 's' : ''} menace${rest.length > 1 ? 's' : ''}
+        </button>`;
+    }
+
+    container.innerHTML = html;
   } catch { /* silencieux */ }
+}
+
+function toggleMoreThreats() {
+  const more = document.getElementById('threatsMore');
+  const btn  = document.getElementById('btnShowMore');
+  const open = more.classList.toggle('open');
+  btn.classList.toggle('open', open);
+  const count = more.querySelectorAll('.threat-card').length;
+  btn.innerHTML = `<span class="chevron">▾</span> ${open
+    ? 'Réduire'
+    : `Voir ${count} autre${count > 1 ? 's' : ''} menace${count > 1 ? 's' : ''}`}`;
 }
 
 // ─── SIGNALEMENT ──────────────────────────────────
