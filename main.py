@@ -153,7 +153,10 @@ async def report(payload: ReportRequest):
     
     Peut être lié à une analyse existante via `analysis_id`.
     """
-    valid_types = {"arnaque", "faux_site", "sms_frauduleux", "autre"}
+    valid_types = {
+    "arnaque", "faux_site", "sms_frauduleux",
+    "mobile_money", "faux_emploi", "broutage", "autre"
+}
     if payload.report_type not in valid_types:
         raise HTTPException(400, f"report_type invalide. Valeurs : {valid_types}")
 
