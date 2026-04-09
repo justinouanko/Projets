@@ -35,7 +35,17 @@
       overflow-x: hidden;
     }
 
-    /* ─── NOISE TEXTURE OVERLAY ─── */
+    .masked-content {
+      color: var(--text-dim);
+      font-style: italic;
+    }
+    .mask-dots {
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      font-style: normal;
+    }
+
+
     body::before {
       content: '';
       position: fixed; inset: 0;
@@ -943,7 +953,7 @@ async function loadHistory() {
     tbody.innerHTML = rows.map(r => `
       <tr>
         <td style="color:var(--muted);font-size:0.72rem">#${r.id}</td>
-        <td class="text-cell">${escapeHTML(r.input_text)}</td>
+        <td class="text-cell">${maskIfSafe(r.input_text, r.is_scam)}</td>
         <td><span class="badge ${r.is_scam ? 'badge-scam' : 'badge-safe'}">${r.is_scam ? 'ARNAQUE' : 'SAIN'}</span></td>
         <td style="color:${riskColor(r.risk_level)}">${r.risk_level}</td>
         <td style="color:var(--text-dim)">${r.scam_category || '—'}</td>
@@ -955,6 +965,18 @@ async function loadHistory() {
 
 function escapeHTML(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function maskIfSafe(text, isScam) {
+  if (!text) return '—';
+  const escaped = escapeHTML(text);
+  if (!isScam) {
+    const words = text.trim().split(/\s+/);
+    const preview = escapeHTML(words.slice(0, 4).join(' '));
+    const suffix = words.length > 4 ? ' <span class="mask-dots">●●●</span>' : '';
+    return `<span class="masked-content">${preview}${suffix}</span>`;
+  }
+  return escaped;
 }
 
 // ─── SIGNALEMENT ────────────────────────────────
