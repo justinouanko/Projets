@@ -43,7 +43,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("CIAlert·Bot")
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 agent = CIAlertAgent()
 
 # États ConversationHandler
