@@ -1,198 +1,257 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CIAlert — Détecteur d'arnaques 🇨🇮</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
-    /* ─── DESIGN SYSTEM ─── */
+    /* ─── DESIGN TOKENS ─── */
     :root {
-      --bg:        #0a0a0f;
-      --surface:   #111118;
-      --border:    #1f1f2e;
-      --green:     #00ff88;
-      --orange:    #ff6b2b;
-      --red:       #ff2d55;
-      --yellow:    #ffd60a;
-      --muted:     #4a4a6a;
-      --text:      #e8e8f0;
-      --text-dim:  #7070a0;
-      --font-head: 'Syne', sans-serif;
-      --font-mono: 'Space Mono', monospace;
+      --orange:   #F4601A;
+      --orange-soft: #FFF0E8;
+      --green:    #16A34A;
+      --green-soft: #DCFCE7;
+      --red:      #DC2626;
+      --red-soft: #FEE2E2;
+      --yellow:   #D97706;
+      --yellow-soft: #FEF3C7;
+
+      --font-head: 'Bricolage Grotesque', sans-serif;
+      --font-body: 'DM Sans', sans-serif;
+
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+
+      --transition: 0.2s ease;
     }
 
+    /* ─── LIGHT THEME (default) ─── */
+    [data-theme="light"] {
+      --bg:         #F8F7F4;
+      --bg-alt:     #EFEDE8;
+      --surface:    #FFFFFF;
+      --surface-2:  #F3F1ED;
+      --border:     #E5E2DC;
+      --border-strong: #D1CEC8;
+      --text:       #1A1714;
+      --text-dim:   #6B6560;
+      --text-muted: #A09B94;
+      --shadow:     0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.05);
+      --shadow-lg:  0 4px 24px rgba(0,0,0,0.1);
+    }
+
+    /* ─── DARK THEME ─── */
+    [data-theme="dark"] {
+      --bg:         #111110;
+      --bg-alt:     #1A1917;
+      --surface:    #1E1D1B;
+      --surface-2:  #252320;
+      --border:     #2E2C29;
+      --border-strong: #3D3A36;
+      --text:       #F0EDE8;
+      --text-dim:   #A09890;
+      --text-muted: #6B6560;
+      --shadow:     0 1px 3px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.2);
+      --shadow-lg:  0 4px 24px rgba(0,0,0,0.4);
+    }
+
+    /* ─── RESET ─── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
 
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: var(--font-mono);
+      font-family: var(--font-body);
       min-height: 100vh;
       overflow-x: hidden;
-    }
-
-    body::before {
-      content: '';
-      position: fixed; inset: 0;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-      pointer-events: none;
-      z-index: 9999;
-      opacity: 0.35;
-    }
-
-    body::after {
-      content: '';
-      position: fixed; inset: 0;
-      background-image:
-        linear-gradient(var(--border) 1px, transparent 1px),
-        linear-gradient(90deg, var(--border) 1px, transparent 1px);
-      background-size: 40px 40px;
-      pointer-events: none;
-      z-index: 0;
-      opacity: 0.4;
+      transition: background var(--transition), color var(--transition);
+      line-height: 1.6;
     }
 
     /* ─── HEADER ─── */
     header {
-      position: relative; z-index: 10;
+      position: sticky; top: 0; z-index: 100;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 1.5rem 2.5rem;
+      padding: 1rem 2.5rem;
+      background: var(--surface);
       border-bottom: 1px solid var(--border);
-      background: rgba(10, 10, 15, 0.85);
-      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+      transition: background var(--transition), border-color var(--transition);
     }
 
     .logo {
       font-family: var(--font-head);
       font-weight: 800;
-      font-size: 1.6rem;
-      letter-spacing: -0.02em;
+      font-size: 1.5rem;
+      letter-spacing: -0.03em;
       display: flex;
       align-items: center;
       gap: 0.5rem;
     }
-    .logo span.ci    { color: var(--orange); }
-    .logo span.alert { color: var(--green); }
-
     .logo-flag {
-      width: 24px; height: 16px;
+      width: 22px; height: 15px;
       background: linear-gradient(90deg, #f77f00 33%, #fff 33% 66%, #009a44 66%);
-      border-radius: 2px;
+      border-radius: 3px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    }
+    .logo span.ci    { color: var(--orange); }
+    .logo span.alert { color: var(--text); }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
     }
 
     .status-pill {
-      font-size: 0.7rem;
-      padding: 0.25rem 0.75rem;
-      border: 1px solid var(--green);
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.3rem 0.8rem;
       border-radius: 99px;
+      background: var(--green-soft);
       color: var(--green);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      animation: pulse-border 2s ease-in-out infinite;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .status-pill::before {
+      content: '';
+      width: 6px; height: 6px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.8); }
     }
 
-    @keyframes pulse-border {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(0,255,136,0.3); }
-      50%       { box-shadow: 0 0 0 6px rgba(0,255,136,0); }
+    /* ─── THEME TOGGLE ─── */
+    .theme-toggle {
+      position: relative;
+      width: 52px; height: 28px;
+      cursor: pointer;
     }
+    .theme-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .theme-track {
+      position: absolute; inset: 0;
+      background: var(--bg-alt);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      transition: background 0.25s;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 5px;
+      font-size: 12px;
+    }
+    .theme-thumb {
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 20px; height: 20px;
+      background: var(--surface);
+      border-radius: 50%;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+    }
+    [data-theme="dark"] .theme-thumb { transform: translateX(24px); }
 
-    /* ─── MAIN LAYOUT ─── */
+    /* ─── MAIN ─── */
     main {
-      position: relative; z-index: 10;
-      max-width: 1100px;
+      max-width: 1080px;
       margin: 0 auto;
-      padding: 3rem 2rem;
+      padding: 3rem 2rem 4rem;
     }
 
     /* ─── HERO ─── */
     .hero {
       text-align: center;
-      margin-bottom: 3.5rem;
-      animation: fade-up 0.6s ease both;
+      margin-bottom: 3rem;
+      animation: fade-up 0.5s ease both;
     }
-
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--orange-soft);
+      color: var(--orange);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.3rem 0.9rem;
+      border-radius: 99px;
+      margin-bottom: 1.25rem;
+    }
     .hero h1 {
       font-family: var(--font-head);
       font-weight: 800;
-      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-size: clamp(2rem, 5vw, 3.2rem);
       line-height: 1.1;
+      letter-spacing: -0.03em;
       margin-bottom: 1rem;
     }
-
     .hero h1 em {
       font-style: normal;
       color: var(--orange);
-      position: relative;
     }
-    .hero h1 em::after {
-      content: '';
-      position: absolute;
-      bottom: 2px; left: 0; right: 0;
-      height: 3px;
-      background: var(--orange);
-      opacity: 0.4;
-    }
-
     .hero p {
       color: var(--text-dim);
-      font-size: 0.9rem;
-      line-height: 1.7;
-      max-width: 500px;
-      margin: 0 auto 2rem;
+      font-size: 1rem;
+      max-width: 480px;
+      margin: 0 auto;
     }
 
-    /* ─── ANALYSE BOX ─── */
+    /* ─── ANALYZE BOX ─── */
     .analyze-box {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: var(--radius-lg);
       padding: 2rem;
-      margin-bottom: 2.5rem;
-      animation: fade-up 0.6s 0.1s ease both;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .analyze-box::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 2px;
-      background: linear-gradient(90deg, var(--orange), var(--green));
+      margin-bottom: 2rem;
+      box-shadow: var(--shadow);
+      animation: fade-up 0.5s 0.08s ease both;
+      transition: background var(--transition), border-color var(--transition), box-shadow var(--transition);
     }
 
     .analyze-box label {
       display: block;
-      font-size: 0.7rem;
-      letter-spacing: 0.15em;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
       color: var(--text-dim);
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.6rem;
     }
 
     textarea {
       width: 100%;
       background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
       color: var(--text);
-      font-family: var(--font-mono);
-      font-size: 0.85rem;
+      font-family: var(--font-body);
+      font-size: 0.92rem;
       line-height: 1.6;
-      padding: 1rem;
+      padding: 0.9rem 1rem;
       resize: vertical;
       min-height: 120px;
-      transition: border-color 0.2s;
+      transition: border-color var(--transition), background var(--transition);
       outline: none;
     }
-
     textarea:focus { border-color: var(--orange); }
-    textarea::placeholder { color: var(--muted); }
+    textarea::placeholder { color: var(--text-muted); }
 
     .input-row {
       display: flex;
@@ -204,142 +263,195 @@
 
     .type-select {
       background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
       color: var(--text);
-      font-family: var(--font-mono);
-      font-size: 0.8rem;
+      font-family: var(--font-body);
+      font-size: 0.85rem;
       padding: 0.6rem 0.9rem;
       outline: none;
       cursor: pointer;
+      transition: border-color var(--transition);
     }
+    .type-select:focus { border-color: var(--orange); }
 
-    .ai-toggle {
+    /* ─── AI TOGGLE PILL ─── */
+    .ai-toggle-wrap {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      font-size: 0.78rem;
-      color: var(--text-dim);
-      cursor: pointer;
-      user-select: none;
     }
-
-    .ai-toggle input { accent-color: var(--green); }
+    .ai-toggle-label {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--text-dim);
+      user-select: none;
+      cursor: pointer;
+    }
+    .ai-pill-toggle {
+      position: relative;
+      width: 56px; height: 28px;
+      cursor: pointer;
+    }
+    .ai-pill-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .ai-pill-track {
+      position: absolute; inset: 0;
+      background: var(--border);
+      border-radius: 99px;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      padding: 0 4px;
+    }
+    .ai-pill-toggle input:checked + .ai-pill-track {
+      background: var(--green);
+    }
+    .ai-pill-thumb {
+      width: 20px; height: 20px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ai-pill-toggle input:checked + .ai-pill-track .ai-pill-thumb {
+      transform: translateX(28px);
+    }
+    .ai-status-text {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      transition: color var(--transition);
+    }
+    .ai-status-text.on { color: var(--green); }
+    .ai-status-text.off { color: var(--text-muted); }
 
     .btn-analyze {
       margin-left: auto;
       background: var(--orange);
-      color: #000;
+      color: #fff;
       font-family: var(--font-head);
       font-weight: 700;
       font-size: 0.9rem;
-      padding: 0.7rem 1.8rem;
+      padding: 0.65rem 1.75rem;
       border: none;
-      border-radius: 8px;
+      border-radius: var(--radius-sm);
       cursor: pointer;
-      letter-spacing: 0.03em;
-      transition: transform 0.15s, box-shadow 0.15s;
+      letter-spacing: 0.01em;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
     }
-
     .btn-analyze:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(255,107,43,0.4);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(244,96,26,0.35);
     }
     .btn-analyze:active { transform: translateY(0); }
-    .btn-analyze:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-analyze:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 
-    /* ─── RÉSULTAT ─── */
-    #result {
-      display: none;
-      animation: fade-up 0.4s ease both;
-    }
+    /* ─── RESULT ─── */
+    #result { display: none; animation: fade-up 0.4s ease both; margin-bottom: 2rem; }
 
     .result-card {
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
       overflow: hidden;
-      margin-bottom: 2.5rem;
+      box-shadow: var(--shadow);
+      transition: background var(--transition), border-color var(--transition);
     }
 
     .result-header {
       padding: 1.5rem 2rem;
       display: flex;
       align-items: center;
-      gap: 1.5rem;
+      gap: 1.25rem;
       border-bottom: 1px solid var(--border);
     }
 
-    .verdict-icon { font-size: 2.5rem; line-height: 1; }
+    .verdict-icon {
+      font-size: 2.2rem;
+      line-height: 1;
+      flex-shrink: 0;
+    }
 
     .verdict-text h2 {
       font-family: var(--font-head);
       font-weight: 800;
-      font-size: 1.4rem;
+      font-size: 1.3rem;
+      letter-spacing: -0.02em;
     }
 
     .verdict-text p {
-      font-size: 0.78rem;
+      font-size: 0.82rem;
       color: var(--text-dim);
-      margin-top: 0.2rem;
+      margin-top: 0.15rem;
     }
 
     .result-meta {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 0;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     }
 
     .meta-item {
-      padding: 1.25rem 2rem;
+      padding: 1.25rem 1.75rem;
       border-right: 1px solid var(--border);
     }
     .meta-item:last-child { border-right: none; }
 
     .meta-label {
-      font-size: 0.65rem;
-      letter-spacing: 0.15em;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: var(--text-dim);
-      margin-bottom: 0.4rem;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
     }
 
     .meta-value {
       font-family: var(--font-head);
-      font-size: 1.3rem;
+      font-size: 1.4rem;
       font-weight: 700;
+      letter-spacing: -0.02em;
     }
 
     .result-explanation {
       padding: 1.5rem 2rem;
       border-top: 1px solid var(--border);
-      background: rgba(0,0,0,0.2);
+      background: var(--surface-2);
     }
 
     .result-explanation .label {
-      font-size: 0.65rem;
-      letter-spacing: 0.15em;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: var(--text-dim);
-      margin-bottom: 0.6rem;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
     }
 
     .result-explanation p {
-      font-size: 0.85rem;
+      font-size: 0.9rem;
       line-height: 1.7;
       color: var(--text);
     }
 
-    .flags-list { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+    .flags-list { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.75rem; }
 
     .flag-chip {
-      background: rgba(255,107,43,0.1);
-      border: 1px solid rgba(255,107,43,0.3);
+      background: var(--orange-soft);
       color: var(--orange);
-      font-size: 0.7rem;
-      padding: 0.25rem 0.6rem;
-      border-radius: 4px;
-      letter-spacing: 0.05em;
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 0.25rem 0.65rem;
+      border-radius: 6px;
+    }
+    [data-theme="dark"] .flag-chip {
+      background: rgba(244,96,26,0.12);
     }
 
     .risk-FAIBLE   { color: var(--green); }
@@ -350,252 +462,228 @@
     .verdict-SCAM { border-top: 3px solid var(--red); }
     .verdict-SAFE { border-top: 3px solid var(--green); }
 
-    /* ─── STATS GRID ─── */
+    /* ─── SECTION TITLE ─── */
     .section-title {
       font-family: var(--font-head);
-      font-size: 0.75rem;
-      font-weight: 600;
-      letter-spacing: 0.2em;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: var(--text-dim);
-      margin-bottom: 1.25rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
       display: flex;
       align-items: center;
       gap: 0.75rem;
     }
-
     .section-title::after {
       content: '';
       flex: 1;
       height: 1px;
       background: var(--border);
     }
-
-    .section-title .title-badge {
-      font-size: 0.6rem;
-      padding: 0.15rem 0.5rem;
+    .title-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.15rem 0.55rem;
       border-radius: 99px;
-      background: rgba(255,45,85,0.15);
+      background: var(--red-soft);
       color: var(--red);
-      border: 1px solid rgba(255,45,85,0.3);
-      letter-spacing: 0.05em;
+    }
+    [data-theme="dark"] .title-badge {
+      background: rgba(220,38,38,0.15);
     }
 
+    /* ─── STATS ─── */
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 1rem;
       margin-bottom: 2.5rem;
-      animation: fade-up 0.6s 0.2s ease both;
+      animation: fade-up 0.5s 0.15s ease both;
     }
 
     .stat-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 10px;
+      border-radius: var(--radius-md);
       padding: 1.5rem;
       position: relative;
       overflow: hidden;
-      transition: border-color 0.2s;
+      box-shadow: var(--shadow);
+      transition: border-color var(--transition), transform 0.15s, box-shadow 0.15s, background var(--transition);
     }
-
-    .stat-card:hover { border-color: var(--orange); }
-
-    .stat-card .accent-line {
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 2px;
+    .stat-card:hover {
+      border-color: var(--border-strong);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
     }
-
     .stat-num {
       font-family: var(--font-head);
-      font-size: 2.2rem;
+      font-size: 2.4rem;
       font-weight: 800;
       line-height: 1;
       margin-bottom: 0.3rem;
+      letter-spacing: -0.03em;
     }
-
     .stat-label {
-      font-size: 0.7rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
+      font-size: 0.78rem;
+      font-weight: 500;
       color: var(--text-dim);
     }
+    .accent-line {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 0 0 var(--radius-md) var(--radius-md);
+    }
 
-    /* ─── MENACES SECTION ─── */
+    /* ─── THREATS ─── */
     .threats-section {
-      margin-bottom: 3rem;
-      animation: fade-up 0.6s 0.3s ease both;
+      margin-bottom: 2.5rem;
+      animation: fade-up 0.5s 0.2s ease both;
     }
 
     .threats-empty {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 2.5rem;
+      border-radius: var(--radius-md);
+      padding: 3rem;
       text-align: center;
-      color: var(--muted);
-      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-size: 0.85rem;
     }
-
     .threats-empty .empty-icon { font-size: 2rem; margin-bottom: 0.75rem; }
 
     .threat-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1.25rem 1.5rem;
-      margin-bottom: 0.75rem;
+      border-radius: var(--radius-md);
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.6rem;
       display: grid;
       grid-template-columns: auto 1fr auto auto;
       gap: 1rem;
       align-items: center;
-      transition: border-color 0.2s, transform 0.15s;
+      transition: border-color var(--transition), transform 0.15s, box-shadow 0.15s;
       position: relative;
       overflow: hidden;
     }
-
     .threat-card::before {
       content: '';
       position: absolute;
       left: 0; top: 0; bottom: 0;
       width: 3px;
+      border-radius: 0 2px 2px 0;
     }
-
-    .threat-card.risk-MOYEN    { border-left-color: var(--yellow); }
     .threat-card.risk-MOYEN::before    { background: var(--yellow); }
-    .threat-card.risk-ÉLEVÉ    { border-left-color: var(--orange); }
     .threat-card.risk-ÉLEVÉ::before    { background: var(--orange); }
-    .threat-card.risk-CRITIQUE { border-left-color: var(--red); }
     .threat-card.risk-CRITIQUE::before { background: var(--red); }
 
     .threat-card:hover {
-      border-color: var(--muted);
+      border-color: var(--border-strong);
       transform: translateX(2px);
+      box-shadow: var(--shadow);
     }
 
     .threat-risk-badge {
-      font-size: 0.6rem;
+      font-size: 0.62rem;
       font-weight: 700;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      padding: 0.3rem 0.6rem;
-      border-radius: 4px;
+      padding: 0.28rem 0.6rem;
+      border-radius: 6px;
       white-space: nowrap;
     }
-
-    .risk-badge-MOYEN    { background: rgba(255,214,10,0.12);  color: var(--yellow); border: 1px solid rgba(255,214,10,0.3); }
-    .risk-badge-ÉLEVÉ    { background: rgba(255,107,43,0.12);  color: var(--orange); border: 1px solid rgba(255,107,43,0.3); }
-    .risk-badge-CRITIQUE { background: rgba(255,45,85,0.12);   color: var(--red);    border: 1px solid rgba(255,45,85,0.3); }
-
-    .threat-content {
-      min-width: 0;
-    }
+    .risk-badge-MOYEN    { background: var(--yellow-soft); color: var(--yellow); }
+    .risk-badge-ÉLEVÉ    { background: var(--orange-soft); color: var(--orange); }
+    .risk-badge-CRITIQUE { background: var(--red-soft);    color: var(--red); }
+    [data-theme="dark"] .risk-badge-MOYEN    { background: rgba(217,119,6,0.15); }
+    [data-theme="dark"] .risk-badge-ÉLEVÉ    { background: rgba(244,96,26,0.15); }
+    [data-theme="dark"] .risk-badge-CRITIQUE { background: rgba(220,38,38,0.15); }
 
     .threat-excerpt {
-      font-size: 0.82rem;
-      color: var(--text);
+      font-size: 0.84rem;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      margin-bottom: 0.3rem;
+      margin-bottom: 0.2rem;
     }
-
     .threat-meta-row {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: 0.6rem;
     }
-
     .threat-cat {
       font-size: 0.65rem;
-      letter-spacing: 0.08em;
+      font-weight: 600;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      color: var(--text-dim);
-      background: rgba(255,255,255,0.04);
-      border: 1px solid var(--border);
-      padding: 0.15rem 0.5rem;
-      border-radius: 3px;
+      color: var(--text-muted);
+      background: var(--bg-alt);
+      padding: 0.12rem 0.5rem;
+      border-radius: 4px;
     }
-
     .threat-date {
       font-size: 0.65rem;
-      color: var(--muted);
+      color: var(--text-muted);
     }
-
     .threat-conf {
       font-family: var(--font-head);
-      font-size: 0.9rem;
+      font-size: 0.92rem;
       font-weight: 700;
       color: var(--text-dim);
       text-align: right;
       white-space: nowrap;
     }
-
     .threat-conf span {
       display: block;
       font-size: 0.6rem;
-      font-weight: 400;
-      letter-spacing: 0.1em;
+      font-weight: 500;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: var(--muted);
+      color: var(--text-muted);
     }
 
     /* ─── SHOW MORE ─── */
-    .threats-more {
-      display: none;
-      animation: fade-up 0.3s ease both;
-    }
+    .threats-more { display: none; animation: fade-up 0.3s ease both; }
     .threats-more.open { display: block; }
 
     .btn-show-more {
       width: 100%;
-      background: transparent;
+      background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: var(--radius-sm);
       color: var(--text-dim);
-      font-family: var(--font-mono);
-      font-size: 0.75rem;
+      font-family: var(--font-body);
+      font-size: 0.82rem;
+      font-weight: 500;
       padding: 0.7rem 1rem;
       cursor: pointer;
       margin-top: 0.5rem;
-      letter-spacing: 0.05em;
-      transition: border-color 0.2s, color 0.2s;
+      transition: border-color var(--transition), color var(--transition), background var(--transition);
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
     }
-
-    .btn-show-more:hover { border-color: var(--orange); color: var(--orange); }
-
-    .btn-show-more .chevron {
-      display: inline-block;
-      transition: transform 0.25s;
-    }
+    .btn-show-more:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-soft); }
+    [data-theme="dark"] .btn-show-more:hover { background: rgba(244,96,26,0.08); }
+    .btn-show-more .chevron { display: inline-block; transition: transform 0.25s; }
     .btn-show-more.open .chevron { transform: rotate(180deg); }
 
     /* ─── REPORT SECTION ─── */
     .report-section {
       margin-bottom: 3rem;
-      animation: fade-up 0.6s 0.4s ease both;
+      animation: fade-up 0.5s 0.25s ease both;
     }
 
     .report-box {
       background: var(--surface);
-      border: 1px solid rgba(255,45,85,0.25);
-      border-radius: 12px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
       padding: 2rem;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .report-box::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 2px;
-      background: linear-gradient(90deg, var(--red), var(--orange));
+      box-shadow: var(--shadow);
+      transition: background var(--transition), border-color var(--transition);
     }
 
     .report-box-header {
@@ -609,22 +697,20 @@
 
     .report-box-title {
       font-family: var(--font-head);
-      font-weight: 800;
-      font-size: 1.15rem;
+      font-weight: 700;
+      font-size: 1.1rem;
       display: flex;
       align-items: center;
-      gap: 0.6rem;
-    }
-
-    .report-box-title .icon {
-      font-size: 1.3rem;
+      gap: 0.5rem;
+      letter-spacing: -0.01em;
     }
 
     .report-box-sub {
-      font-size: 0.78rem;
+      font-size: 0.84rem;
       color: var(--text-dim);
       margin-top: 0.3rem;
-      line-height: 1.5;
+      line-height: 1.55;
+      max-width: 520px;
     }
 
     .report-grid {
@@ -632,20 +718,16 @@
       grid-template-columns: 1fr 1fr;
       gap: 1rem;
     }
+    @media (max-width: 600px) { .report-grid { grid-template-columns: 1fr; } }
 
-    @media (max-width: 600px) {
-      .report-grid { grid-template-columns: 1fr; }
-    }
+    .report-grid .field-full { grid-column: 1 / -1; }
 
-    .report-grid .field-full {
-      grid-column: 1 / -1;
-    }
-
-    .field { margin-bottom: 0; }
+    .field { }
     .field label {
       display: block;
-      font-size: 0.65rem;
-      letter-spacing: 0.12em;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
       color: var(--text-dim);
       margin-bottom: 0.4rem;
@@ -654,20 +736,18 @@
     .field input, .field select, .field textarea {
       width: 100%;
       background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
       color: var(--text);
-      font-family: var(--font-mono);
-      font-size: 0.8rem;
+      font-family: var(--font-body);
+      font-size: 0.88rem;
       padding: 0.65rem 0.9rem;
       outline: none;
-      transition: border-color 0.2s;
+      transition: border-color var(--transition), background var(--transition);
     }
-
     .field input:focus, .field select:focus, .field textarea:focus {
       border-color: var(--red);
     }
-
     .field textarea { resize: vertical; min-height: 90px; }
 
     .report-submit-row {
@@ -679,8 +759,8 @@
     }
 
     .report-hint {
-      font-size: 0.7rem;
-      color: var(--muted);
+      font-size: 0.72rem;
+      color: var(--text-muted);
       flex: 1;
     }
 
@@ -690,33 +770,30 @@
       font-family: var(--font-head);
       font-weight: 700;
       font-size: 0.88rem;
-      padding: 0.7rem 1.8rem;
+      padding: 0.65rem 1.75rem;
       border: none;
-      border-radius: 8px;
+      border-radius: var(--radius-sm);
       cursor: pointer;
-      letter-spacing: 0.03em;
-      transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+      letter-spacing: 0.01em;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.4rem;
     }
-
     .btn-report-submit:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(255,45,85,0.35);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(220,38,38,0.3);
     }
+    .btn-report-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 
-    .btn-report-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-    /* ─── CONFIDENCE BAR ─── */
+    /* ─── CONF BAR ─── */
     .conf-bar-wrap {
-      background: var(--bg);
+      background: var(--bg-alt);
       border-radius: 99px;
-      height: 6px;
+      height: 5px;
       overflow: hidden;
       margin-top: 0.4rem;
     }
-
     .conf-bar {
       height: 100%;
       border-radius: 99px;
@@ -725,31 +802,33 @@
 
     /* ─── TOAST ─── */
     .toast {
-      position: fixed; bottom: 2rem; right: 2rem;
+      position: fixed; bottom: 1.5rem; right: 1.5rem;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.9rem 1.4rem;
-      font-size: 0.82rem;
-      z-index: 200;
-      transform: translateY(100px);
+      border-radius: var(--radius-md);
+      padding: 0.85rem 1.25rem;
+      font-size: 0.84rem;
+      font-weight: 500;
+      z-index: 9999;
+      transform: translateY(80px);
       opacity: 0;
-      transition: transform 0.3s, opacity 0.3s;
+      box-shadow: var(--shadow-lg);
+      transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), opacity 0.3s;
+      max-width: 320px;
     }
     .toast.show  { transform: translateY(0); opacity: 1; }
-    .toast.success { border-color: var(--green); color: var(--green); }
-    .toast.error   { border-color: var(--red);   color: var(--red); }
+    .toast.success { border-left: 3px solid var(--green); }
+    .toast.error   { border-left: 3px solid var(--red); }
 
-    /* ─── LOADING SPINNER ─── */
+    /* ─── SPINNERS ─── */
     .spinner {
       display: inline-block;
       width: 14px; height: 14px;
-      border: 2px solid rgba(0,0,0,0.3);
-      border-top-color: #000;
+      border: 2px solid rgba(255,255,255,0.35);
+      border-top-color: #fff;
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
       vertical-align: middle;
-      margin-right: 6px;
     }
     .spinner-white {
       display: inline-block;
@@ -759,49 +838,44 @@
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
     }
-
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ─── BADGE ─── */
-    .badge {
-      display: inline-block;
-      font-size: 0.65rem;
-      padding: 0.2rem 0.5rem;
-      border-radius: 4px;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-    .badge-scam { background: rgba(255,45,85,0.15); color: var(--red); border: 1px solid rgba(255,45,85,0.3); }
-    .badge-safe { background: rgba(0,255,136,0.1); color: var(--green); border: 1px solid rgba(0,255,136,0.2); }
+    /* ─── BADGES ─── */
+    .badge { display: inline-block; font-size: 0.65rem; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+    .badge-scam { background: var(--red-soft); color: var(--red); }
+    .badge-safe { background: var(--green-soft); color: var(--green); }
+    [data-theme="dark"] .badge-scam { background: rgba(220,38,38,0.15); }
+    [data-theme="dark"] .badge-safe { background: rgba(22,163,74,0.15); }
 
     /* ─── ANIMATIONS ─── */
     @keyframes fade-up {
-      from { opacity: 0; transform: translateY(20px); }
+      from { opacity: 0; transform: translateY(16px); }
       to   { opacity: 1; transform: translateY(0); }
     }
 
     /* ─── FOOTER ─── */
     footer {
-      position: relative; z-index: 10;
       text-align: center;
       padding: 2rem;
-      color: var(--muted);
-      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-size: 0.75rem;
       border-top: 1px solid var(--border);
     }
-    footer a { color: var(--orange); text-decoration: none; }
+    footer a { color: var(--orange); text-decoration: none; font-weight: 500; }
+    footer a:hover { text-decoration: underline; }
 
     /* ─── RESPONSIVE ─── */
     @media (max-width: 640px) {
-      header { padding: 1rem 1.25rem; }
-      main { padding: 2rem 1.25rem; }
+      header { padding: 0.9rem 1.25rem; }
+      main { padding: 2rem 1.25rem 3rem; }
+      .hero h1 { font-size: 1.9rem; }
       .input-row { flex-direction: column; }
-      .btn-analyze { width: 100%; }
+      .btn-analyze { width: 100%; justify-content: center; }
       .result-meta { grid-template-columns: 1fr 1fr; }
       .meta-item { border-right: none; border-bottom: 1px solid var(--border); }
       .threat-card { grid-template-columns: auto 1fr; }
       .threat-conf { display: none; }
+      .status-pill { display: none; }
     }
   </style>
 </head>
@@ -813,7 +887,21 @@
     <div class="logo-flag"></div>
     <span class="ci">CI</span><span class="alert">Alert</span>
   </div>
-  <div class="status-pill">● API connectée</div>
+  <div class="header-right">
+    <div class="status-pill">API connectée</div>
+
+    <!-- THEME TOGGLE -->
+    <label class="theme-toggle" title="Changer de thème">
+      <input type="checkbox" id="themeToggle" onchange="toggleTheme(this)" />
+      <div class="theme-track">
+        <span>☀️</span>
+        <span>🌙</span>
+      </div>
+      <div class="theme-thumb" id="themeThumb">
+        <span id="themeIcon">☀️</span>
+      </div>
+    </label>
+  </div>
 </header>
 
 <!-- ─── MAIN ─── -->
@@ -821,6 +909,7 @@
 
   <!-- HERO -->
   <div class="hero">
+    <div class="hero-badge">🇨🇮 Protection numérique en Côte d'Ivoire</div>
     <h1>Protège-toi des<br><em>arnaques digitales</em></h1>
     <p>Colle un SMS, un message WhatsApp, une URL ou un numéro suspect — l'IA analyse en quelques secondes.</p>
   </div>
@@ -836,9 +925,19 @@
         <option value="url">URL / Lien</option>
         <option value="phone">Numéro de téléphone</option>
       </select>
-      <label class="ai-toggle">
-        <input type="checkbox" id="useAI" checked /> Analyse IA
-      </label>
+
+      <!-- AI TOGGLE PILL -->
+      <div class="ai-toggle-wrap">
+        <label class="ai-pill-toggle" title="Activer/désactiver l'analyse IA">
+          <input type="checkbox" id="useAI" checked onchange="updateAIStatus(this)" />
+          <div class="ai-pill-track">
+            <div class="ai-pill-thumb">🤖</div>
+          </div>
+        </label>
+        <span class="ai-toggle-label">Analyse IA</span>
+        <span class="ai-status-text on" id="aiStatusText">ON</span>
+      </div>
+
       <button class="btn-analyze" id="btnAnalyze" onclick="runAnalysis()">
         Analyser →
       </button>
@@ -888,26 +987,26 @@
     <div class="stat-card">
       <div class="stat-num" id="statTotal">—</div>
       <div class="stat-label">Analyses effectuées</div>
-      <div class="accent-line" style="background: linear-gradient(90deg, var(--orange), transparent)"></div>
+      <div class="accent-line" style="background:linear-gradient(90deg,var(--orange),transparent)"></div>
     </div>
     <div class="stat-card">
       <div class="stat-num" id="statScams">—</div>
       <div class="stat-label">Arnaques détectées</div>
-      <div class="accent-line" style="background: linear-gradient(90deg, var(--red), transparent)"></div>
+      <div class="accent-line" style="background:linear-gradient(90deg,var(--red),transparent)"></div>
     </div>
     <div class="stat-card">
       <div class="stat-num" id="statRate">—</div>
-      <div class="stat-label">Taux d'arnaque</div>
-      <div class="accent-line" style="background: linear-gradient(90deg, var(--yellow), transparent)"></div>
+      <div class="stat-label">Taux d&apos;arnaque</div>
+      <div class="accent-line" style="background:linear-gradient(90deg,var(--yellow),transparent)"></div>
     </div>
     <div class="stat-card">
       <div class="stat-num" id="statReports">—</div>
       <div class="stat-label">Signalements reçus</div>
-      <div class="accent-line" style="background: linear-gradient(90deg, var(--green), transparent)"></div>
+      <div class="accent-line" style="background:linear-gradient(90deg,var(--green),transparent)"></div>
     </div>
   </div>
 
-  <!-- ─── MENACES DÉTECTÉES ─── -->
+  <!-- MENACES DÉTECTÉES -->
   <div class="threats-section">
     <div class="section-title">
       Menaces détectées
@@ -916,19 +1015,19 @@
     <div id="threatsList">
       <div class="threats-empty">
         <div class="empty-icon">🛡️</div>
-        <div>Aucune menace active pour l'instant</div>
+        <div>Aucune menace active pour l&apos;instant</div>
       </div>
     </div>
   </div>
 
-  <!-- ─── SIGNALER UNE ARNAQUE ─── -->
+  <!-- SIGNALER UNE ARNAQUE -->
   <div class="report-section">
     <div class="section-title">Signaler une arnaque</div>
     <div class="report-box">
       <div class="report-box-header">
         <div>
           <div class="report-box-title">
-            <span class="icon">⚠️</span>
+            <span>⚠️</span>
             Vous avez reçu un message suspect ?
           </div>
           <div class="report-box-sub">
@@ -939,13 +1038,13 @@
 
       <div class="report-grid">
         <div class="field">
-          <label>Type d'arnaque</label>
+          <label>Type d&apos;arnaque</label>
           <select id="reportType">
             <option value="arnaque">Arnaque générale</option>
             <option value="sms_frauduleux">SMS frauduleux</option>
             <option value="faux_site">Faux site web</option>
             <option value="mobile_money">Fraude Mobile Money</option>
-            <option value="faux_emploi">Fausse offre d'emploi</option>
+            <option value="faux_emploi">Fausse offre d&apos;emploi</option>
             <option value="broutage">Broutage / Romance scam</option>
             <option value="autre">Autre</option>
           </select>
@@ -966,7 +1065,7 @@
 
         <div class="field field-full">
           <label>Contenu du message / lien suspect (optionnel)</label>
-          <textarea id="reportContent" rows="3" placeholder="Collez ici le message ou lien reçu — il sera analysé automatiquement par l'IA…"></textarea>
+          <textarea id="reportContent" rows="3" placeholder="Collez ici le message ou lien reçu — il sera analysé automatiquement par l&apos;IA…"></textarea>
         </div>
 
         <div class="field">
@@ -976,7 +1075,7 @@
 
         <div class="field">
           <label>Description complémentaire (optionnel)</label>
-          <input type="text" id="reportDesc" placeholder="Ex: m'a demandé mon code OTP…" />
+          <input type="text" id="reportDesc" placeholder="Ex: m&apos;a demandé mon code OTP…" />
         </div>
       </div>
 
@@ -991,12 +1090,12 @@
 
 </main>
 
-<!-- ─── FOOTER ─── -->
+<!-- FOOTER -->
 <footer>
-  CIAlert v1.0 · Côte d'Ivoire 🇨🇮 · Propulsé par l'IA · <a href="/docs" target="_blank">API Docs</a>
+  CIAlert v1.0 · Côte d&apos;Ivoire 🇨🇮 · Propulsé par l&apos;IA · <a href="/docs" target="_blank">API Docs</a>
 </footer>
 
-<!-- ─── TOAST ─── -->
+<!-- TOAST -->
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1005,6 +1104,35 @@ let lastAnalysisId = null;
 let lastInputText  = '';
 
 const RISK_LEVELS_VISIBLE = ['MOYEN', 'ÉLEVÉ', 'CRITIQUE'];
+
+// ─── THEME ────────────────────────────────────────
+function toggleTheme(checkbox) {
+  const isDark = checkbox.checked;
+  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  document.getElementById('themeIcon').textContent = isDark ? '🌙' : '☀️';
+  localStorage.setItem('cialert-theme', isDark ? 'dark' : 'light');
+}
+
+// Restaurer le thème au chargement
+(function() {
+  const saved = localStorage.getItem('cialert-theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const theme = saved || (prefersDark ? 'dark' : 'light');
+  if (theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    const toggle = document.getElementById('themeToggle');
+    if (toggle) toggle.checked = true;
+    const icon = document.getElementById('themeIcon');
+    if (icon) icon.textContent = '🌙';
+  }
+})();
+
+// ─── AI TOGGLE STATUS ─────────────────────────────
+function updateAIStatus(checkbox) {
+  const statusEl = document.getElementById('aiStatusText');
+  statusEl.textContent = checkbox.checked ? 'ON' : 'OFF';
+  statusEl.className = 'ai-status-text ' + (checkbox.checked ? 'on' : 'off');
+}
 
 // ─── UTILS ────────────────────────────────────────
 function showToast(msg, type = 'success') {
@@ -1020,7 +1148,7 @@ function formatDate(iso) {
 }
 
 function riskColor(level) {
-  return { FAIBLE:'#00ff88', MOYEN:'#ffd60a', 'ÉLEVÉ':'#ff6b2b', CRITIQUE:'#ff2d55' }[level] || '#7070a0';
+  return { FAIBLE:'#16A34A', MOYEN:'#D97706', 'ÉLEVÉ':'#F4601A', CRITIQUE:'#DC2626' }[level] || '#A09B94';
 }
 
 function escapeHTML(str) {
@@ -1055,10 +1183,8 @@ async function runAnalysis() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, input_type: type, use_ai: useAI })
     });
-
     if (!res.ok) throw new Error(`Erreur ${res.status}`);
     const data = await res.json();
-
     lastAnalysisId = data.analysis_id;
     displayResult(data);
     loadStats();
@@ -1080,7 +1206,7 @@ function displayResult(d) {
   document.getElementById('verdictIcon').textContent  = isScam ? '🚨' : '✅';
   document.getElementById('verdictTitle').textContent = isScam ? 'ARNAQUE DÉTECTÉE' : 'Contenu sain';
   document.getElementById('verdictSub').textContent   =
-    isScam ? `Niveau ${d.risk_level} — Ne pas donner suite !` : "Aucun signal d'arnaque détecté.";
+    isScam ? `Niveau ${d.risk_level} — Ne pas donner suite !` : "Aucun signal d\u2019arnaque détecté.";
 
   const confPct = Math.round(d.confidence * 100);
   document.getElementById('metaConf').textContent = `${confPct}%`;
@@ -1133,7 +1259,7 @@ function buildThreatCard(r) {
     <div class="threat-card risk-${riskKey}">
       <span class="threat-risk-badge risk-badge-${riskKey}">${riskKey}</span>
       <div class="threat-content">
-        <div class="threat-excerpt">${excerpt || '<span style="color:var(--muted)">Contenu non disponible</span>'}</div>
+        <div class="threat-excerpt">${excerpt || '<span style="color:var(--text-muted)">Contenu non disponible</span>'}</div>
         <div class="threat-meta-row">
           ${r.scam_category ? `<span class="threat-cat">${formatCategory(r.scam_category)}</span>` : ''}
           <span class="threat-date">${formatDate(r.created_at)}</span>
@@ -1146,21 +1272,18 @@ function buildThreatCard(r) {
 async function loadThreats() {
   try {
     const rows = await fetch(`${API}/history`).then(r => r.json()).catch(() => []);
-
-    // Filtrer & trier par gravité décroissante
     const threats = rows
       .filter(r => r.is_scam && RISK_LEVELS_VISIBLE.includes(r.risk_level))
       .sort((a, b) => (RISK_ORDER[a.risk_level] ?? 9) - (RISK_ORDER[b.risk_level] ?? 9));
 
     document.getElementById('threatsCount').textContent = threats.length;
-
     const container = document.getElementById('threatsList');
 
     if (!threats.length) {
       container.innerHTML = `
         <div class="threats-empty">
           <div class="empty-icon">🛡️</div>
-          <div>Aucune menace active pour l'instant</div>
+          <div>Aucune menace active pour l\u2019instant</div>
         </div>`;
       return;
     }
@@ -1204,7 +1327,6 @@ async function submitReport() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-white"></span> Envoi…';
 
-  // Si l'utilisateur a collé du contenu, on l'analyse en arrière-plan
   let analysisId = null;
   if (content) {
     try {
@@ -1237,7 +1359,6 @@ async function submitReport() {
     });
     if (!res.ok) throw new Error();
 
-    // Reset du formulaire
     document.getElementById('reportContent').value  = '';
     document.getElementById('reportAmount').value   = '';
     document.getElementById('reportDesc').value     = '';
@@ -1261,6 +1382,13 @@ document.addEventListener('keydown', e => {
 });
 
 // ─── INIT ─────────────────────────────────────────
+// Sync theme toggle state after DOM ready
+document.addEventListener('DOMContentLoaded', () => {
+  const theme = document.documentElement.getAttribute('data-theme');
+  const toggle = document.getElementById('themeToggle');
+  if (theme === 'dark' && toggle) toggle.checked = true;
+});
+
 loadStats();
 loadThreats();
 </script>
