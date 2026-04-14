@@ -561,7 +561,7 @@
       padding: 1rem 1.25rem;
       margin-bottom: 0.6rem;
       display: grid;
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: auto 1fr auto auto;
       gap: 1rem;
       align-items: center;
       transition: border-color var(--transition), transform 0.15s, box-shadow 0.15s;
@@ -627,15 +627,6 @@
       font-size: 0.65rem;
       color: var(--text-muted);
     }
-
-    /* ─── THREAT RIGHT COL ─── */
-    .threat-right {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 0.4rem;
-      flex-shrink: 0;
-    }
     .threat-conf {
       font-family: var(--font-head);
       font-size: 0.92rem;
@@ -651,38 +642,6 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--text-muted);
-    }
-
-    /* ─── FEEDBACK BUTTONS ─── */
-    .threat-feedback {
-      display: flex;
-      gap: 0.3rem;
-    }
-    .fb-btn {
-      background: var(--bg-alt);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.85rem;
-      padding: 0.2rem 0.45rem;
-      line-height: 1;
-      transition: transform 0.1s, background 0.15s;
-    }
-    .fb-btn:hover {
-      transform: scale(1.15);
-      background: var(--surface-2);
-    }
-    .fb-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-    .fb-sent {
-      font-size: 0.65rem;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      color: var(--text-muted);
-      padding: 0.25rem 0;
     }
 
     /* ─── SHOW MORE ─── */
@@ -790,61 +749,6 @@
       border-color: var(--red);
     }
     .field textarea { resize: vertical; min-height: 90px; }
-
-    /* ─── FILE DROP ZONE ─── */
-    .file-drop-zone {
-      width: 100%;
-      background: var(--bg);
-      border: 1.5px dashed var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--text-muted);
-      font-family: var(--font-body);
-      font-size: 0.85rem;
-      padding: 0.85rem 1rem;
-      cursor: pointer;
-      transition: border-color var(--transition), background var(--transition), color var(--transition);
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      user-select: none;
-    }
-    .file-drop-zone:hover {
-      border-color: var(--red);
-      background: var(--red-soft);
-      color: var(--text-dim);
-    }
-    [data-theme="dark"] .file-drop-zone:hover {
-      background: rgba(220,38,38,0.08);
-    }
-    .file-drop-zone.file-selected {
-      border-color: var(--green);
-      border-style: solid;
-      background: var(--green-soft);
-      color: var(--green);
-    }
-    [data-theme="dark"] .file-drop-zone.file-selected {
-      background: rgba(22,163,74,0.1);
-    }
-    .file-drop-icon {
-      font-size: 1.1rem;
-      flex-shrink: 0;
-      line-height: 1;
-    }
-    .file-drop-label { flex: 1; line-height: 1.4; }
-    .file-drop-clear {
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--text-muted);
-      font-size: 1rem;
-      padding: 0.1rem 0.3rem;
-      border-radius: 4px;
-      transition: color 0.15s, background 0.15s;
-      flex-shrink: 0;
-      display: none;
-    }
-    .file-drop-zone.file-selected .file-drop-clear { display: block; }
-    .file-drop-clear:hover { color: var(--red); background: var(--red-soft); }
 
     .report-submit-row {
       display: flex;
@@ -970,7 +874,7 @@
       .result-meta { grid-template-columns: 1fr 1fr; }
       .meta-item { border-right: none; border-bottom: 1px solid var(--border); }
       .threat-card { grid-template-columns: auto 1fr; }
-      .threat-right { display: none; }
+      .threat-conf { display: none; }
       .status-pill { display: none; }
     }
   </style>
@@ -1164,21 +1068,6 @@
           <textarea id="reportContent" rows="3" placeholder="Collez ici le message ou lien reçu — il sera analysé automatiquement par l&apos;IA…"></textarea>
         </div>
 
-        <!-- PIÈCE JOINTE -->
-        <div class="field field-full">
-          <label>Pièce jointe suspecte (optionnel)</label>
-          <div class="file-drop-zone" id="fileDropZone"
-               onclick="document.getElementById('reportFile').click()"
-               ondragover="event.preventDefault(); this.style.borderColor='var(--red)'"
-               ondragleave="this.style.borderColor=''"
-               ondrop="handleFileDrop(event)">
-            <span class="file-drop-icon">📎</span>
-            <span class="file-drop-label" id="fileDropLabel">Capture d&apos;écran, PDF, SMS exporté… (PNG, JPG, PDF, TXT · max 10 Mo)</span>
-            <button class="file-drop-clear" id="fileClearBtn" onclick="clearFile(event)" title="Supprimer le fichier">✕</button>
-          </div>
-          <input type="file" id="reportFile" accept=".pdf,.png,.jpg,.jpeg,.txt,.eml" style="display:none" onchange="handleFileSelect(this)" />
-        </div>
-
         <div class="field">
           <label>Montant escroqué en FCFA (optionnel)</label>
           <input type="number" id="reportAmount" placeholder="Ex: 50000" />
@@ -1213,9 +1102,8 @@
 const API = '';
 let lastAnalysisId = null;
 let lastInputText  = '';
-let reportFileObj  = null;
 
-const RISK_LEVELS_VISIBLE = ['MOYEN', '\u00c9LEV\u00c9', 'CRITIQUE'];
+const RISK_LEVELS_VISIBLE = ['MOYEN', 'ÉLEVÉ', 'CRITIQUE'];
 
 // ─── THEME ────────────────────────────────────────
 function toggleTheme(checkbox) {
@@ -1225,6 +1113,7 @@ function toggleTheme(checkbox) {
   localStorage.setItem('cialert-theme', isDark ? 'dark' : 'light');
 }
 
+// Restaurer le thème au chargement
 (function() {
   const saved = localStorage.getItem('cialert-theme');
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -1249,13 +1138,17 @@ function updateAIStatus(checkbox) {
 function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
   t.textContent = msg;
-  t.className = 'toast ' + type + ' show';
+  t.className = `toast ${type} show`;
   setTimeout(() => t.classList.remove('show'), 3500);
 }
 
 function formatDate(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString('fr-FR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+}
+
+function riskColor(level) {
+  return { FAIBLE:'#16A34A', MOYEN:'#D97706', 'ÉLEVÉ':'#F4601A', CRITIQUE:'#DC2626' }[level] || '#A09B94';
 }
 
 function escapeHTML(str) {
@@ -1268,43 +1161,7 @@ function formatCategory(cat) {
     faux_emploi: 'Faux emploi', sms_frauduleux: 'SMS frauduleux',
     faux_site: 'Faux site', arnaque: 'Arnaque', autre: 'Autre'
   };
-  return cat ? (map[cat] || cat) : '\u2014';
-}
-
-// ─── FILE UPLOAD ──────────────────────────────────
-function handleFileSelect(input) {
-  if (input.files && input.files[0]) applyFile(input.files[0]);
-}
-
-function handleFileDrop(event) {
-  event.preventDefault();
-  document.getElementById('fileDropZone').style.borderColor = '';
-  if (event.dataTransfer.files && event.dataTransfer.files[0]) {
-    applyFile(event.dataTransfer.files[0]);
-  }
-}
-
-function applyFile(file) {
-  if (file.size > 10 * 1024 * 1024) {
-    showToast('Fichier trop volumineux (max 10\u00a0Mo)', 'error');
-    return;
-  }
-  reportFileObj = file;
-  const zone  = document.getElementById('fileDropZone');
-  const label = document.getElementById('fileDropLabel');
-  zone.classList.add('file-selected');
-  label.textContent = '\u2713\u00a0' + file.name + ' (' + (file.size / 1024).toFixed(0) + '\u00a0Ko)';
-}
-
-function clearFile(event) {
-  event.stopPropagation();
-  reportFileObj = null;
-  const zone  = document.getElementById('fileDropZone');
-  const label = document.getElementById('fileDropLabel');
-  zone.classList.remove('file-selected');
-  zone.style.borderColor = '';
-  label.textContent = 'Capture d\u2019\u00e9cran, PDF, SMS export\u00e9\u2026 (PNG, JPG, PDF, TXT\u00a0\u00b7 max 10\u00a0Mo)';
-  document.getElementById('reportFile').value = '';
+  return cat ? (map[cat] || cat) : '—';
 }
 
 // ─── ANALYSE ──────────────────────────────────────
@@ -1314,29 +1171,29 @@ async function runAnalysis() {
   const useAI = document.getElementById('useAI').checked;
   const btn   = document.getElementById('btnAnalyze');
 
-  if (!text) { showToast('Colle un texte \u00e0 analyser\u00a0!', 'error'); return; }
+  if (!text) { showToast('Colle un texte à analyser !', 'error'); return; }
 
   lastInputText = text;
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Analyse\u2026';
+  btn.innerHTML = '<span class="spinner"></span> Analyse…';
 
   try {
-    const res = await fetch(API + '/analyze', {
+    const res = await fetch(`${API}/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, input_type: type, use_ai: useAI })
     });
-    if (!res.ok) throw new Error('Erreur ' + res.status);
+    if (!res.ok) throw new Error(`Erreur ${res.status}`);
     const data = await res.json();
     lastAnalysisId = data.analysis_id;
     displayResult(data);
     loadStats();
     loadThreats();
   } catch (e) {
-    showToast('Erreur\u00a0: ' + e.message, 'error');
+    showToast(`Erreur : ${e.message}`, 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Analyser \u2192';
+    btn.textContent = 'Analyser →';
   }
 }
 
@@ -1344,26 +1201,26 @@ function displayResult(d) {
   const isScam = d.is_scam;
   const card   = document.getElementById('resultCard');
 
-  card.className = 'result-card ' + (isScam ? 'verdict-SCAM' : 'verdict-SAFE');
+  card.className = `result-card ${isScam ? 'verdict-SCAM' : 'verdict-SAFE'}`;
 
   document.getElementById('verdictIcon').textContent  = isScam ? '🚨' : '✅';
-  document.getElementById('verdictTitle').textContent = isScam ? 'ARNAQUE D\u00c9TECT\u00c9E' : 'Contenu sain';
+  document.getElementById('verdictTitle').textContent = isScam ? 'ARNAQUE DÉTECTÉE' : 'Contenu sain';
   document.getElementById('verdictSub').textContent   =
-    isScam ? ('Niveau ' + d.risk_level + ' \u2014 Ne pas donner suite\u00a0!') : 'Aucun signal d\u2019arnaque d\u00e9tect\u00e9.';
+    isScam ? `Niveau ${d.risk_level} — Ne pas donner suite !` : "Aucun signal d\u2019arnaque détecté.";
 
   const confPct = Math.round(d.confidence * 100);
-  document.getElementById('metaConf').textContent = confPct + '%';
+  document.getElementById('metaConf').textContent = `${confPct}%`;
   const bar = document.getElementById('confBar');
   bar.style.width = '0%';
   bar.style.background = isScam ? 'var(--red)' : 'var(--green)';
-  setTimeout(() => bar.style.width = confPct + '%', 50);
+  setTimeout(() => bar.style.width = `${confPct}%`, 50);
 
   const riskEl = document.getElementById('metaRisk');
   riskEl.textContent = d.risk_level;
-  riskEl.className   = 'meta-value risk-' + d.risk_level;
+  riskEl.className   = `meta-value risk-${d.risk_level}`;
 
   document.getElementById('metaCat').textContent = formatCategory(d.scam_category);
-  document.getElementById('metaMs').textContent  = d.processing_ms + ' ms';
+  document.getElementById('metaMs').textContent  = `${d.processing_ms} ms`;
   document.getElementById('explanationText').textContent =
     d.explanation || 'Aucune explication disponible.';
 
@@ -1383,45 +1240,38 @@ function displayResult(d) {
 // ─── STATS ────────────────────────────────────────
 async function loadStats() {
   try {
-    const data = await fetch(API + '/stats').then(r => r.json());
-    document.getElementById('statTotal').textContent   = data.total_analyses ?? '\u2014';
-    document.getElementById('statScams').textContent   = data.total_scams    ?? '\u2014';
-    document.getElementById('statRate').textContent    = data.scam_rate != null ? data.scam_rate + '%' : '\u2014';
-    document.getElementById('statReports').textContent = data.total_reports   ?? '\u2014';
+    const data = await fetch(`${API}/stats`).then(r => r.json());
+    document.getElementById('statTotal').textContent   = data.total_analyses ?? '—';
+    document.getElementById('statScams').textContent   = data.total_scams    ?? '—';
+    document.getElementById('statRate').textContent    = data.scam_rate != null ? `${data.scam_rate}%` : '—';
+    document.getElementById('statReports').textContent = data.total_reports   ?? '—';
   } catch { /* silencieux */ }
 }
 
 // ─── MENACES ──────────────────────────────────────
-const RISK_ORDER = { CRITIQUE: 0, '\u00c9LEV\u00c9': 1, MOYEN: 2 };
+const RISK_ORDER = { CRITIQUE: 0, 'ÉLEVÉ': 1, MOYEN: 2 };
 
 function buildThreatCard(r) {
-  const excerpt   = escapeHTML((r.input_text || '').substring(0, 100));
-  const confPct   = r.confidence != null ? Math.round(r.confidence * 100) + '%' : '\u2014';
-  const riskKey   = r.risk_level || 'MOYEN';
-  const analysisId = escapeHTML(String(r.id || r.analysis_id || ''));
-
-  return '<div class="threat-card risk-' + riskKey + '">' +
-    '<span class="threat-risk-badge risk-badge-' + riskKey + '">' + riskKey + '</span>' +
-    '<div class="threat-content">' +
-      '<div class="threat-excerpt">' + (excerpt || '<span style="color:var(--text-muted)">Contenu non disponible</span>') + '</div>' +
-      '<div class="threat-meta-row">' +
-        (r.scam_category ? '<span class="threat-cat">' + formatCategory(r.scam_category) + '</span>' : '') +
-        '<span class="threat-date">' + formatDate(r.created_at) + '</span>' +
-      '</div>' +
-    '</div>' +
-    '<div class="threat-right">' +
-      '<div class="threat-conf">' + confPct + '<span>confiance</span></div>' +
-      '<div class="threat-feedback" id="fb-' + analysisId + '">' +
-        '<button class="fb-btn" onclick="sendFeedback(this,\'' + analysisId + '\',\'correct\')" title="D\u00e9tection correcte">\u2705</button>' +
-        '<button class="fb-btn" onclick="sendFeedback(this,\'' + analysisId + '\',\'incorrect\')" title="Faux positif">\u274c</button>' +
-      '</div>' +
-    '</div>' +
-  '</div>';
+  const excerpt = escapeHTML((r.input_text || '').substring(0, 100));
+  const confPct = r.confidence != null ? Math.round(r.confidence * 100) + '%' : '—';
+  const riskKey = r.risk_level || 'MOYEN';
+  return `
+    <div class="threat-card risk-${riskKey}">
+      <span class="threat-risk-badge risk-badge-${riskKey}">${riskKey}</span>
+      <div class="threat-content">
+        <div class="threat-excerpt">${excerpt || '<span style="color:var(--text-muted)">Contenu non disponible</span>'}</div>
+        <div class="threat-meta-row">
+          ${r.scam_category ? `<span class="threat-cat">${formatCategory(r.scam_category)}</span>` : ''}
+          <span class="threat-date">${formatDate(r.created_at)}</span>
+        </div>
+      </div>
+      <div class="threat-conf">${confPct}<span>confiance</span></div>
+    </div>`;
 }
 
 async function loadThreats() {
   try {
-    const rows = await fetch(API + '/history').then(r => r.json()).catch(() => []);
+    const rows = await fetch(`${API}/history`).then(r => r.json()).catch(() => []);
     const threats = rows
       .filter(r => r.is_scam && RISK_LEVELS_VISIBLE.includes(r.risk_level))
       .sort((a, b) => (RISK_ORDER[a.risk_level] ?? 9) - (RISK_ORDER[b.risk_level] ?? 9));
@@ -1430,11 +1280,11 @@ async function loadThreats() {
     const container = document.getElementById('threatsList');
 
     if (!threats.length) {
-      container.innerHTML =
-        '<div class="threats-empty">' +
-          '<div class="empty-icon">🛡️</div>' +
-          '<div>Aucune menace active pour l\u2019instant</div>' +
-        '</div>';
+      container.innerHTML = `
+        <div class="threats-empty">
+          <div class="empty-icon">🛡️</div>
+          <div>Aucune menace active pour l\u2019instant</div>
+        </div>`;
       return;
     }
 
@@ -1444,14 +1294,14 @@ async function loadThreats() {
     let html = top.map(buildThreatCard).join('');
 
     if (rest.length) {
-      html +=
-        '<div class="threats-more" id="threatsMore">' +
-          rest.map(buildThreatCard).join('') +
-        '</div>' +
-        '<button class="btn-show-more" id="btnShowMore" onclick="toggleMoreThreats()">' +
-          '<span class="chevron">&#9662;</span>' +
-          'Voir ' + rest.length + ' autre' + (rest.length > 1 ? 's' : '') + ' menace' + (rest.length > 1 ? 's' : '') +
-        '</button>';
+      html += `
+        <div class="threats-more" id="threatsMore">
+          ${rest.map(buildThreatCard).join('')}
+        </div>
+        <button class="btn-show-more" id="btnShowMore" onclick="toggleMoreThreats()">
+          <span class="chevron">▾</span>
+          Voir ${rest.length} autre${rest.length > 1 ? 's' : ''} menace${rest.length > 1 ? 's' : ''}
+        </button>`;
     }
 
     container.innerHTML = html;
@@ -1464,39 +1314,9 @@ function toggleMoreThreats() {
   const open = more.classList.toggle('open');
   btn.classList.toggle('open', open);
   const count = more.querySelectorAll('.threat-card').length;
-  btn.innerHTML = '<span class="chevron">&#9662;</span> ' + (open
-    ? 'R\u00e9duire'
-    : 'Voir ' + count + ' autre' + (count > 1 ? 's' : '') + ' menace' + (count > 1 ? 's' : ''));
-}
-
-// ─── FEEDBACK ─────────────────────────────────────
-async function sendFeedback(btn, analysisId, feedbackType) {
-  if (!analysisId) { showToast('ID d\u2019analyse manquant', 'error'); return; }
-
-  const container = btn.closest('.threat-feedback');
-  container.querySelectorAll('.fb-btn').forEach(b => b.disabled = true);
-
-  try {
-    const res = await fetch(API + '/feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ analysis_id: analysisId, feedback_type: feedbackType })
-    });
-    if (!res.ok) throw new Error();
-
-    container.innerHTML = '<span class="fb-sent">' +
-      (feedbackType === 'correct' ? '\u2705 Confirm\u00e9' : '\u274c Signal\u00e9') +
-      '</span>';
-    showToast(
-      feedbackType === 'correct'
-        ? 'Merci \u2014 d\u00e9tection confirm\u00e9e\u00a0!'
-        : 'Merci \u2014 faux positif signal\u00e9\u00a0!',
-      'success'
-    );
-  } catch {
-    showToast('Erreur lors de l\u2019envoi du feedback', 'error');
-    container.querySelectorAll('.fb-btn').forEach(b => b.disabled = false);
-  }
+  btn.innerHTML = `<span class="chevron">▾</span> ${open
+    ? 'Réduire'
+    : `Voir ${count} autre${count > 1 ? 's' : ''} menace${count > 1 ? 's' : ''}`}`;
 }
 
 // ─── SIGNALEMENT ──────────────────────────────────
@@ -1505,14 +1325,12 @@ async function submitReport() {
   const btn     = document.getElementById('btnReportSubmit');
 
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-white"></span> Envoi\u2026';
+  btn.innerHTML = '<span class="spinner-white"></span> Envoi…';
 
   let analysisId = null;
-
-  // Analyse IA du texte si présent
   if (content) {
     try {
-      const res = await fetch(API + '/analyze', {
+      const res = await fetch(`${API}/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: content, input_type: 'text', use_ai: true })
@@ -1521,24 +1339,11 @@ async function submitReport() {
         const data = await res.json();
         analysisId = data.analysis_id;
       }
-    } catch { /* on continue */ }
-  }
-
-  // Analyse IA du fichier si présent
-  if (reportFileObj) {
-    try {
-      const fd = new FormData();
-      fd.append('file', reportFileObj);
-      const res = await fetch(API + '/analyze-file', { method: 'POST', body: fd });
-      if (res.ok) {
-        const data = await res.json();
-        if (!analysisId) analysisId = data.analysis_id;
-      }
-    } catch { /* on continue */ }
+    } catch { /* on continue même si l'analyse échoue */ }
   }
 
   const body = {
-    text:            content || (reportFileObj ? 'Fichier\u00a0: ' + reportFileObj.name : 'Signalement manuel'),
+    text:            content || 'Signalement manuel',
     report_type:     document.getElementById('reportType').value,
     victim_platform: document.getElementById('reportPlatform').value || null,
     victim_amount:   parseFloat(document.getElementById('reportAmount').value) || null,
@@ -1547,29 +1352,27 @@ async function submitReport() {
   };
 
   try {
-    const res = await fetch(API + '/report', {
+    const res = await fetch(`${API}/report`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
     if (!res.ok) throw new Error();
 
-    // Reset form
     document.getElementById('reportContent').value  = '';
     document.getElementById('reportAmount').value   = '';
     document.getElementById('reportDesc').value     = '';
     document.getElementById('reportType').value     = 'arnaque';
     document.getElementById('reportPlatform').value = '';
-    clearFile({ stopPropagation: () => {} });
 
-    showToast('Signalement envoy\u00e9 \u2014 merci pour la communaut\u00e9\u00a0! 🙏', 'success');
+    showToast('Signalement envoyé — merci pour la communauté ! 🙏', 'success');
     loadStats();
     loadThreats();
   } catch {
     showToast('Erreur lors du signalement.', 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Envoyer le signalement \u2192';
+    btn.textContent = 'Envoyer le signalement →';
   }
 }
 
@@ -1579,6 +1382,7 @@ document.addEventListener('keydown', e => {
 });
 
 // ─── INIT ─────────────────────────────────────────
+// Sync theme toggle state after DOM ready
 document.addEventListener('DOMContentLoaded', () => {
   const theme = document.documentElement.getAttribute('data-theme');
   const toggle = document.getElementById('themeToggle');
