@@ -18,6 +18,8 @@ from pydantic import BaseModel, Field
 from agent import CIAlertAgent
 from database import init_db, save_analysis, save_report, get_global_stats, get_recent_analyses
 
+from fastapi import File, UploadFile
+from file_extractor import extract_text
 # ─────────────────────────────────────────────
 # INITIALISATION
 # ─────────────────────────────────────────────
@@ -174,7 +176,77 @@ async def report(payload: ReportRequest):
         message="Signalement reçu. Merci de contribuer à la sécurité de la communauté 🙏",
         status="pending"
     )
+# ─────────────────────────────────────────────────────────────────────────────
+#  POST /analyze-file  — Analyse d'une pièce jointe
+# ─────────────────────────────────────────────────────────────────────────────
 
+@app.post("/analyze-file")
+async def analyze_file(file: UploadFile = File(...)):
+    """
+    Reçoit un fichier (PDF, image, texte), en extrait le contenu,
+    puis le soumet à l'agent IA exactement comme /analyze.
+
+    Retourne :
+      - verdict, score, category, explanation  (même format que /analyze)
+      - file_info : nom, taille, méthode d'extraction, troncature
+    """
+    try:
+        # ── Lecture du fichier ────────────────────────────────────────────────
+        data = await file.read()
+        content_type = file.content_type or ""
+        filename = file.filename or "fichier_inconnu"
+
+        # ── Extraction du texte ───────────────────────────────────────────────
+        try:
+            extracted = extract_text(data, content_type, filename)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
+        text = extracted["text"]
+
+        # ── Analyse IA (même agent que /analyze) ─────────────────────────────
+        analysis = await analyze_content(text)
+
+        # ── Sauvegarde en base (table analyses, comme les textes normaux) ─────
+        conn = get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """INSERT INTO analyses
+                   (content, verdict, score, category, explanation, source)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (
+                    f"[FICHIER: {filename}]\n\n{text[:500]}",  # extrait pour la DB
+                    analysis["verdict"],
+                    analysis["score"],
+                    analysis["category"],
+                    analysis["explanation"],
+                    "file_upload",
+                ),
+            )
+            conn.commit()
+        except Exception as db_err:
+            logger.warning(f"Sauvegarde DB échouée : {db_err}")
+        finally:
+            conn.close()
+
+        # ── Réponse ───────────────────────────────────────────────────────────
+        return {
+            **analysis,
+            "file_info": {
+                "filename": filename,
+                "size_kb": round(len(data) / 1024, 1),
+                "extraction_method": extracted["method"],
+                "char_count": extracted["char_count"],
+                "truncated": extracted["truncated"],
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erreur /analyze-file : {e}")
+        raise HTTPException(status_code=500, detail="Erreur lors de l'analyse du fichier.")
 
 # ─────────────────────────────────────────────
 # ENDPOINT : GET /stats  (bonus utile)
