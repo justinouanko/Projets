@@ -115,23 +115,6 @@ else:
 # ─────────────────────────────────────────────
 
 def init_db():
-# ─────────────────────────────────────────────────────────────────────────────
-# Table séparée pour les fichiers
-# ─────────────────────────────────────────────────────────────────────────────
-FILE_ANALYSES_TABLE = """
-CREATE TABLE IF NOT EXISTS file_analyses (
-    id          SERIAL PRIMARY KEY,
-    filename    TEXT,
-    content     TEXT,
-    verdict     TEXT,
-    score       REAL,
-    category    TEXT,
-    explanation TEXT,
-    method      TEXT,
-    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-"""
-
     """Crée toutes les tables si elles n'existent pas."""
     with get_connection() as conn:
         cur = conn.cursor()
@@ -206,6 +189,22 @@ CREATE TABLE IF NOT EXISTS file_analyses (
                 analysis_id     INTEGER     NOT NULL,
                 correct         INTEGER     NOT NULL,
                 real_category   TEXT
+            )
+        """)
+
+        # Table analyses de fichiers (pièces jointes)
+        cur.execute(f"""
+            CREATE TABLE IF NOT EXISTS file_analyses (
+                id              {AUTOINCREMENT},
+                created_at      TIMESTAMP   NOT NULL DEFAULT {DATETIME_DEFAULT},
+                filename        TEXT,
+                content         TEXT,
+                verdict         TEXT,
+                score           REAL,
+                category        TEXT,
+                explanation     TEXT,
+                method          TEXT,
+                source          TEXT        DEFAULT 'file_upload'
             )
         """)
 
