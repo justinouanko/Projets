@@ -115,6 +115,23 @@ else:
 # ─────────────────────────────────────────────
 
 def init_db():
+# ─────────────────────────────────────────────────────────────────────────────
+# Table séparée pour les fichiers
+# ─────────────────────────────────────────────────────────────────────────────
+FILE_ANALYSES_TABLE = """
+CREATE TABLE IF NOT EXISTS file_analyses (
+    id          SERIAL PRIMARY KEY,
+    filename    TEXT,
+    content     TEXT,
+    verdict     TEXT,
+    score       REAL,
+    category    TEXT,
+    explanation TEXT,
+    method      TEXT,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
     """Crée toutes les tables si elles n'existent pas."""
     with get_connection() as conn:
         cur = conn.cursor()
