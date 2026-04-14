@@ -190,9 +190,9 @@ async def cmd_stats(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         s = get_global_stats()
         cats = s.get("categories", {})
         cats_txt = "\n".join(
-            f"  • {CAT_LABEL.get(k, k)} : *{v}*"
+            f"  • {CAT_LABEL.get(k, k)} : {v}"
             for k, v in sorted(cats.items(), key=lambda x: -x[1])
-        ) or "  _Aucune donnée_"
+        ) or "  Aucune donnée"
 
         await update.message.reply_text(
             f"📊 *Statistiques CIAlert*\n\n"
