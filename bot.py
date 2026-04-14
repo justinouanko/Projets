@@ -195,13 +195,12 @@ async def cmd_stats(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         ) or "  Aucune donnée"
 
         await update.message.reply_text(
-            f"📊 *Statistiques CIAlert*\n\n"
-            f"🔍 Analyses effectuées : *{s['total_analyses']}*\n"
-            f"🚨 Arnaques détectées : *{s['total_scams']}*\n"
-            f"📈 Taux d'arnaque : *{s['scam_rate']}%*\n"
-            f"📝 Signalements reçus : *{s['total_reports']}*\n\n"
-            f"🏷 *Par catégorie :*\n{cats_txt}",
-            parse_mode=ParseMode.MARKDOWN,
+            f"📊 Statistiques CIAlert\n\n"
+            f"🔍 Analyses effectuées : {s['total_analyses']}\n"
+            f"🚨 Arnaques détectées : {s['total_scams']}\n"
+            f"📈 Taux d'arnaque : {s['scam_rate']}%\n"
+            f"📝 Signalements reçus : {s['total_reports']}\n\n"
+            f"🏷 Par catégorie :\n{cats_txt}",
             reply_markup=main_keyboard(),
         )
     except Exception as e:
@@ -405,7 +404,6 @@ def main():
     report_conv = ConversationHandler(
         entry_points=[
             CommandHandler("signaler", start_report),
-            # Le bouton "Signaler" du clavier principal est géré dans handle_text
         ],
         states={
             AWAIT_REPORT_TYPE:     [CallbackQueryHandler(report_type_chosen,     pattern="^rtype:")],
