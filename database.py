@@ -16,11 +16,9 @@ from contextlib import contextmanager
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 if DATABASE_URL and DATABASE_URL.startswith("postgres"):
-    # MODE POSTGRESQL
     import psycopg2
     import psycopg2.extras
 
-    # Railway fournit parfois "postgres://" au lieu de "postgresql://"
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
@@ -65,7 +63,6 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres"):
     """
 
 else:
-    # MODE SQLITE (développement local)
     import sqlite3
 
     DB_PATH = "cialert.db"
@@ -119,7 +116,6 @@ def init_db():
     with get_connection() as conn:
         cur = conn.cursor()
 
-        # Table principale des analyses
         cur.execute(f"""
             CREATE TABLE IF NOT EXISTS analyses (
                 id              {AUTOINCREMENT},
@@ -141,7 +137,6 @@ def init_db():
             )
         """)
 
-        # Table des signalements manuels
         cur.execute(f"""
             CREATE TABLE IF NOT EXISTS reports (
                 id              {AUTOINCREMENT},
@@ -157,7 +152,6 @@ def init_db():
             )
         """)
 
-        # Table des sessions utilisateur
         cur.execute(f"""
             CREATE TABLE IF NOT EXISTS user_sessions (
                 id              {AUTOINCREMENT},
@@ -170,7 +164,6 @@ def init_db():
             )
         """)
 
-        # Table des stats journalières
         cur.execute(f"""
             CREATE TABLE IF NOT EXISTS daily_stats (
                 date            TEXT        PRIMARY KEY,
@@ -181,7 +174,6 @@ def init_db():
             )
         """)
 
-        # Table feedback (boucle d'amélioration IA)
         cur.execute(f"""
             CREATE TABLE IF NOT EXISTS feedback (
                 id              {AUTOINCREMENT},
@@ -192,7 +184,6 @@ def init_db():
             )
         """)
 
-        # Table analyses de fichiers (pièces jointes)
         cur.execute(f"""
             CREATE TABLE IF NOT EXISTS file_analyses (
                 id              {AUTOINCREMENT},
@@ -208,44 +199,19 @@ def init_db():
             )
         """)
 
-def save_fake_news_to_db(contenu: str, type_contenu: str, resultat: dict):
-    """Sauvegarde une analyse fake news en base de données."""
-    import json
-    from database import get_db_connection
- 
-    conn = get_db_connection()
-    cursor = conn.cursor()
- 
-    # PostgreSQL vs SQLite (même pattern que ton database.py existant)
-    if os.environ.get("DATABASE_URL"):
-        cursor.execute("""
-            INSERT INTO fake_news_analyses
-                (contenu, type_contenu, verdict, score_manipulation, resultat_json)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (
-            contenu[:500],
-            type_contenu,
-            resultat.get("verdict", "ERREUR"),
-            resultat.get("score_manipulation", 0),
-            json.dumps(resultat, ensure_ascii=False)
-        ))
-    else:
-        cursor.execute("""
-            INSERT INTO fake_news_analyses
-                (contenu, type_contenu, verdict, score_manipulation, resultat_json)
-            VALUES (?, ?, ?, ?, ?)
-        """, (
-            contenu[:500],
-            type_contenu,
-            resultat.get("verdict", "ERREUR"),
-            resultat.get("score_manipulation", 0),
-            json.dumps(resultat, ensure_ascii=False)
-        ))
- 
-    conn.commit()
-    conn.close()
-        
-        # Index
+        # ── Nouvelle table fake news ────────────────────────────────────────
+        cur.execute(f"""
+            CREATE TABLE IF NOT EXISTS fake_news_analyses (
+                id                  {AUTOINCREMENT},
+                created_at          TIMESTAMP   NOT NULL DEFAULT {DATETIME_DEFAULT},
+                contenu             TEXT        NOT NULL,
+                type_contenu        TEXT        DEFAULT 'texte',
+                verdict             TEXT        NOT NULL,
+                score_manipulation  INTEGER     DEFAULT 0,
+                resultat_json       TEXT
+            )
+        """)
+
         cur.execute("CREATE INDEX IF NOT EXISTS idx_analyses_created ON analyses(created_at)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_analyses_scam ON analyses(is_scam)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_analyses_category ON analyses(scam_category)")
@@ -405,7 +371,60 @@ def get_reports(status: str = "pending", limit: int = 50) -> list:
 
 
 # ─────────────────────────────────────────────
-# FEEDBACK (boucle d'amélioration IA)
+# CRUD — FAKE NEWS
+# ─────────────────────────────────────────────
+
+def save_fake_news_to_db(contenu: str, type_contenu: str, resultat: dict) -> int:
+    """Sauvegarde une analyse fake news en base de données."""
+    p = PLACEHOLDER
+    with get_connection() as conn:
+        cur = conn.cursor()
+        if USE_POSTGRES:
+            cur.execute(f"""
+                INSERT INTO fake_news_analyses
+                    (contenu, type_contenu, verdict, score_manipulation, resultat_json)
+                VALUES ({p},{p},{p},{p},{p})
+                RETURNING id
+            """, (
+                contenu[:500],
+                type_contenu,
+                resultat.get("verdict", "ERREUR"),
+                resultat.get("score_manipulation", 0),
+                json.dumps(resultat, ensure_ascii=False)
+            ))
+            return cur.fetchone()[0]
+        else:
+            cur.execute(f"""
+                INSERT INTO fake_news_analyses
+                    (contenu, type_contenu, verdict, score_manipulation, resultat_json)
+                VALUES ({p},{p},{p},{p},{p})
+            """, (
+                contenu[:500],
+                type_contenu,
+                resultat.get("verdict", "ERREUR"),
+                resultat.get("score_manipulation", 0),
+                json.dumps(resultat, ensure_ascii=False)
+            ))
+            return cur.lastrowid
+
+
+def get_fake_news_stats() -> dict:
+    """Stats sur les analyses fake news."""
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM fake_news_analyses")
+        total = cur.fetchone()[0]
+        cur.execute("SELECT verdict, COUNT(*) as cnt FROM fake_news_analyses GROUP BY verdict")
+        rows = cur.fetchall()
+        verdicts = rows_to_dicts(rows, cur)
+        return {
+            "total_analyses": total,
+            "par_verdict": {r["verdict"]: r["cnt"] for r in verdicts}
+        }
+
+
+# ─────────────────────────────────────────────
+# FEEDBACK
 # ─────────────────────────────────────────────
 
 def save_feedback(analysis_id: int, correct: bool, real_category: Optional[str] = None) -> int:
