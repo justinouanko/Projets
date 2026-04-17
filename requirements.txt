@@ -7,8 +7,3 @@ pydantic>=2.10.0
 psycopg2-binary
 python-multipart
 groq
-Pillow
-pytesseract
-pdfplumber
-pdf2image
-google-generativeai
