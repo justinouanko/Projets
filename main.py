@@ -24,9 +24,9 @@ from database import (
 )
 from file_extractor import extract_text
 from fake_news_agent import analyser_fake_news
-
+import logging
 logger = logging.getLogger(__name__)
-
+logging.basicConfig(level=logging.INFO)
 # ─────────────────────────────────────────────
 # INITIALISATION
 # ─────────────────────────────────────────────
