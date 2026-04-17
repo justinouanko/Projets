@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["...", "tesseract", "tesseract-ocr-fra"]
+nixPkgs = ["tesseract", "tesseract-ocr-fra", "tesseract-ocr-eng"]
 
-[phases.build]
-cmds = ["pip install -r requirements.txt"]
+[variables]
+TESSDATA_PREFIX = "/nix/store/.../share/tessdata" # Optionnel, Nix le gère souvent seul
