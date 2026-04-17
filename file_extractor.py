@@ -3,8 +3,11 @@ import logging
 import shutil
 import os
 from typing import Tuple
+import logging
 
+# Initialisation du logger
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO) # Assure que les logs s'affichent
 
 # --- CONFIGURATION TESSERACT POUR RAILWAY ---
 try:
