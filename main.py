@@ -1,31 +1,35 @@
 """
 CIAlert — main.py
-Backend FastAPI : endpoints /analyze, /report, /analyze-file, /fake-news.
+API FastAPI V2.0 — endpoint unifié /scan.
 """
 
 import logging
-import time
-import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, File, Request, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from agent import CIAlertAgent
 from database import (
-    init_db, save_analysis, save_report,
-    get_global_stats, get_recent_analyses,
-    save_fake_news_to_db
+    init_db,
+    save_scan,
+    save_report,
+    save_feedback,
+    get_global_stats,
+    get_recent_analyses,
+    save_analysis,
 )
-from file_extractor import extract_text
-from fake_news_agent import analyser_fake_news
+from router import run_scan, register_scan_phones
+from response_builder import build_response, build_error_response
 
 logger = logging.getLogger(__name__)
+
+_STATIC_DIR = Path(__file__).parent / "static"
+
 
 # ─────────────────────────────────────────────
 # INITIALISATION
@@ -34,13 +38,14 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    print("🚀 CIAlert API démarrée.")
+    print("🚀 CIAlert V2.0 démarrée.")
     yield
+
 
 app = FastAPI(
     title="CIAlert API",
     description="Plateforme ivoirienne de détection d'arnaques digitales 🇨🇮",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -51,289 +56,290 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-agent = CIAlertAgent()
-
 
 # ─────────────────────────────────────────────
 # SCHÉMAS PYDANTIC
 # ─────────────────────────────────────────────
 
-class AnalyzeRequest(BaseModel):
-    text: str = Field(..., min_length=3, max_length=5000, description="Texte à analyser")
-    input_type: str = Field("text", description="Type : text | url | phone | sms")
-    use_ai: bool = Field(True, description="Activer l'analyse IA (en plus des règles)")
-
-class AnalyzeResponse(BaseModel):
-    analysis_id: int
-    is_scam: bool
-    confidence: float
-    risk_level: str
-    scam_category: Optional[str]
-    rule_flags: list[str]
-    explanation: str
-    ai_used: bool
-    processing_ms: int
-
 class ReportRequest(BaseModel):
-    text: str = Field(..., min_length=3, max_length=5000, description="Contenu signalé")
-    report_type: str = Field(..., description="arnaque | faux_site | sms_frauduleux | autre")
-    analysis_id: Optional[int] = Field(None, description="ID d'une analyse liée (optionnel)")
-    victim_amount: Optional[float] = Field(None, description="Montant escroqué en FCFA")
-    victim_platform: Optional[str] = Field(None, description="MTN | Orange | Wave | autre")
-    description: Optional[str] = Field(None, max_length=1000, description="Description libre")
+    content: str = Field(..., min_length=3, max_length=5000)
+    scan_id: Optional[int] = Field(None)
+    victim_amount: Optional[float] = Field(None)
+    victim_platform: Optional[str] = Field(None)
+    description: Optional[str] = Field(None, max_length=1000)
 
-class ReportResponse(BaseModel):
-    report_id: int
-    message: str
-    status: str
 
-class FakeNewsRequest(BaseModel):
-    contenu: str
-    type_contenu: str = "texte"  # "texte" ou "url"
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "contenu": "URGENT !!! Le gouvernement cache la vérité sur Orange Money...",
-                "type_contenu": "texte"
-            }
-        }
+class FeedbackRequest(BaseModel):
+    scan_id: int
+    correct: bool
+    real_category: Optional[str] = None
 
 
 # ─────────────────────────────────────────────
-# ENDPOINT : POST /analyze
+# ENDPOINT PRINCIPAL : POST /scan
 # ─────────────────────────────────────────────
 
-@app.post("/analyze", response_model=AnalyzeResponse, tags=["Détection"])
-async def analyze(payload: AnalyzeRequest, request: Request):
-    start = time.time()
-    user_ip = request.client.host if request.client else None
-    user_agent = request.headers.get("user-agent")
+@app.post("/scan", tags=["Détection"])
+async def scan(
+    request: Request,
+    content: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
+):
+    """
+    Analyse universelle — texte libre, lien, numéro, fichier ou combinaison.
+    Le type de contenu est détecté automatiquement.
+    """
+    # Lecture du fichier si présent
+    file_data = None
+    file_content_type = None
+    filename = None
 
-    valid_types = {"text", "url", "phone", "sms"}
-    if payload.input_type not in valid_types:
-        raise HTTPException(400, f"input_type invalide. Valeurs : {valid_types}")
+    if file and file.filename:
+        file_data = await file.read()
+        file_content_type = file.content_type or ""
+        filename = file.filename
 
-    try:
-        result = await agent.analyze(text=payload.text, use_ai=payload.use_ai)
-    except Exception as e:
-        raise HTTPException(500, f"Erreur d'analyse : {str(e)}")
+    # Vérification : au moins un des deux champs est rempli
+    if not content and not file_data:
+        raise HTTPException(
+            status_code=400,
+            detail="Collez un texte ou joignez un fichier."
+        )
 
-    processing_ms = int((time.time() - start) * 1000)
+    source = _detect_source(request)
 
-    analysis_id = save_analysis(
-        input_text=payload.text,
-        is_scam=result["is_scam"],
-        confidence=result["confidence"],
-        risk_level=result["risk_level"],
-        scam_category=result.get("scam_category"),
-        rule_flags=result.get("rule_flags", []),
-        ai_explanation=result.get("explanation"),
-        ai_provider=result.get("ai_provider"),
-        ai_used=result.get("ai_used", False),
-        processing_ms=processing_ms,
-        input_type=payload.input_type,
-        user_ip=user_ip,
-        user_agent=user_agent,
-        source="web"
+    # Analyse
+    scan_result = await run_scan(
+        text=content,
+        file_data=file_data,
+        file_content_type=file_content_type,
+        filename=filename,
+        source=source,
     )
 
-    return AnalyzeResponse(
-        analysis_id=analysis_id,
-        is_scam=result["is_scam"],
-        confidence=result["confidence"],
-        risk_level=result["risk_level"],
-        scam_category=result.get("scam_category"),
-        rule_flags=result.get("rule_flags", []),
-        explanation=result.get("explanation", "Aucune explication disponible."),
-        ai_used=result.get("ai_used", False),
-        processing_ms=processing_ms,
+    if not scan_result.get("success"):
+        raise HTTPException(
+            status_code=422,
+            detail=scan_result.get("error", "Analyse impossible.")
+        )
+
+    # Sauvegarde en base
+    scan_id = save_scan(
+        raw_input=scan_result["raw_input"],
+        input_type=scan_result["input_type"],
+        is_scam=scan_result["is_scam"],
+        confidence=scan_result["confidence"],
+        risk_level=scan_result["risk_level"],
+        scam_category=scan_result.get("scam_category"),
+        rule_flags=scan_result.get("rule_flags", []),
+        has_fake_news=scan_result.get("has_fake_news", False),
+        fake_news_verdict=scan_result.get("fake_news_verdict"),
+        fake_news_score=scan_result.get("fake_news_score", 0),
+        phone_flagged=scan_result.get("phone_flagged", False),
+        ai_explanation=scan_result.get("ai_explanation"),
+        ai_provider=scan_result.get("ai_provider"),
+        processing_ms=scan_result.get("processing_ms"),
+        has_file=scan_result.get("has_file", False),
+        filename=filename,
+        source=source,
     )
+
+    # Enregistrement des numéros suspects dans le répertoire
+    register_scan_phones(scan_result, scan_id)
+
+    # Réponse simplifiée pour le frontend
+    return build_response(scan_result, scan_id=scan_id)
 
 
 # ─────────────────────────────────────────────
 # ENDPOINT : POST /report
 # ─────────────────────────────────────────────
 
-@app.post("/report", response_model=ReportResponse, tags=["Signalements"])
+@app.post("/report", tags=["Signalements"])
 async def report(payload: ReportRequest):
-    """Signale manuellement une arnaque."""
-    valid_types = {
-        "arnaque", "faux_site", "sms_frauduleux",
-        "mobile_money", "faux_emploi", "broutage", "autre"
-    }
-    if payload.report_type not in valid_types:
-        raise HTTPException(400, f"report_type invalide. Valeurs : {valid_types}")
+    """
+    Signalement manuel. Le type d'arnaque est détecté automatiquement
+    depuis le contenu — l'utilisateur n'a pas à le préciser.
+    """
+    # Détection automatique du type depuis le contenu
+    report_type = _detect_report_type(payload.content)
 
     report_id = save_report(
-        reported_text=payload.text,
-        report_type=payload.report_type,
-        analysis_id=payload.analysis_id,
+        reported_text=payload.content,
+        report_type=report_type,
+        scan_id=payload.scan_id,
         victim_amount=payload.victim_amount,
         victim_platform=payload.victim_platform,
         description=payload.description,
     )
 
-    return ReportResponse(
+    # Alimentation du répertoire de numéros depuis le signalement
+    from phone_registry import register_phone_from_text
+    register_phone_from_text(
+        text=payload.content,
+        scam_category=report_type,
+        source="report",
         report_id=report_id,
-        message="Signalement re\u00e7u. Merci de contribuer \u00e0 la s\u00e9curit\u00e9 de la communaut\u00e9 \U0001f64f",
-        status="pending"
     )
 
-
-# ─────────────────────────────────────────────
-# ENDPOINT : POST /analyze-file
-# ─────────────────────────────────────────────
-
-@app.post("/analyze-file", tags=["Détection"])
-async def analyze_file(file: UploadFile = File(...)):
-    start = time.time()
-
-    data = await file.read()
-    content_type = file.content_type or ""
-    filename = file.filename or "fichier_inconnu"
-
-    try:
-        extracted = extract_text(data, content_type, filename)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-
-    text = extracted["text"]
-
-    try:
-        result = await agent.analyze(text=text, use_ai=True)
-    except Exception as e:
-        logger.error(f"Erreur agent /analyze-file : {e}")
-        raise HTTPException(500, f"Erreur lors de l'analyse IA : {str(e)}")
-
-    processing_ms = int((time.time() - start) * 1000)
-
-    try:
-        analysis_id = save_analysis(
-            input_text=f"[FICHIER: {filename}]\n\n{text[:2000]}",
-            is_scam=result["is_scam"],
-            confidence=result["confidence"],
-            risk_level=result["risk_level"],
-            scam_category=result.get("scam_category"),
-            rule_flags=result.get("rule_flags", []),
-            ai_explanation=result.get("explanation"),
-            ai_provider=result.get("ai_provider"),
-            ai_used=result.get("ai_used", False),
-            processing_ms=processing_ms,
-            input_type="file",
-            source="file_upload"
-        )
-    except Exception as db_err:
-        logger.warning(f"Sauvegarde DB /analyze-file \u00e9chou\u00e9e : {db_err}")
-        analysis_id = None
-
     return {
-        "analysis_id": analysis_id,
-        "is_scam": result["is_scam"],
-        "confidence": result["confidence"],
-        "risk_level": result["risk_level"],
-        "scam_category": result.get("scam_category"),
-        "rule_flags": result.get("rule_flags", []),
-        "explanation": result.get("explanation", "Aucune explication disponible."),
-        "ai_used": result.get("ai_used", False),
-        "processing_ms": processing_ms,
-        "file_info": {
-            "filename": filename,
-            "size_kb": round(len(data) / 1024, 1),
-            "extraction_method": extracted["method"],
-            "char_count": extracted["char_count"],
-            "truncated": extracted["truncated"],
-        },
+        "report_id": report_id,
+        "message": "Signalement reçu. Merci de contribuer à la sécurité de la communauté.",
+        "status": "pending",
     }
 
 
 # ─────────────────────────────────────────────
-# ENDPOINT : POST /fake-news
+# ENDPOINT : POST /feedback
 # ─────────────────────────────────────────────
 
-@app.post("/fake-news", tags=["Fake News"])
-async def detect_fake_news(request: FakeNewsRequest):
-    """
-    Analyse un texte ou une URL pour détecter des signaux de manipulation.
-    Ne fait pas de fact-checking absolu — détecte des patterns rhétoriques
-    et contextuels de désinformation.
-    """
-    contenu = request.contenu.strip()
-    type_contenu = request.type_contenu.strip().lower()
-
-    if not contenu:
-        raise HTTPException(
-            status_code=400,
-            detail="Le champ 'contenu' est requis et ne peut pas \u00eatre vide."
-        )
-
-    if type_contenu not in ["texte", "url"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Le champ 'type_contenu' doit \u00eatre 'texte' ou 'url'."
-        )
-
-    if len(contenu) > 5000:
-        raise HTTPException(
-            status_code=400,
-            detail="Le contenu est trop long. Maximum 5000 caract\u00e8res."
-        )
-
-    resultat = analyser_fake_news(contenu, type_contenu)
-
-    try:
-        save_fake_news_to_db(contenu, type_contenu, resultat)
-    except Exception:
-        pass  # Ne pas bloquer la réponse si la DB échoue
-
-    return {
-        "success": True,
-        "contenu_analyse": contenu[:100] + "..." if len(contenu) > 100 else contenu,
-        "type_contenu": type_contenu,
-        "analyse": resultat
-    }
+@app.post("/feedback", tags=["Feedback"])
+async def feedback(payload: FeedbackRequest):
+    """Retour utilisateur sur un résultat d'analyse (correct / incorrect)."""
+    feedback_id = save_feedback(
+        correct=payload.correct,
+        scan_id=payload.scan_id,
+        real_category=payload.real_category,
+    )
+    return {"feedback_id": feedback_id, "message": "Retour enregistré. Merci."}
 
 
 # ─────────────────────────────────────────────
-# ENDPOINT : GET /history  /stats  /health
+# ENDPOINTS INTERNES : stats, historique, santé
 # ─────────────────────────────────────────────
 
-@app.get("/history", tags=["Statistiques"])
-async def history(limit: int = 20):
-    return get_recent_analyses(limit=limit)
-
-
-@app.get("/stats", tags=["Statistiques"])
+@app.get("/stats", tags=["Interne"])
 async def stats():
+    """Statistiques globales — usage interne."""
     return get_global_stats()
+
+
+@app.get("/history", tags=["Interne"])
+async def history(limit: int = 20):
+    """Historique des analyses — usage interne."""
+    return get_recent_analyses(limit=limit)
 
 
 @app.get("/health", tags=["Système"])
 async def health():
-    return {"status": "ok", "service": "CIAlert API", "version": "1.0.0"}
+    return {"status": "ok", "service": "CIAlert API", "version": "2.0.0"}
 
+
+# ─────────────────────────────────────────────
+# ENDPOINTS V1 — compatibilité bot Telegram
+# Ces endpoints restent actifs pendant la migration du bot.
+# Ils seront supprimés en V2.1 une fois le bot migré vers /scan.
+# ─────────────────────────────────────────────
+
+@app.post("/analyze", tags=["Compatibilité V1"], include_in_schema=False)
+async def analyze_v1(request: Request):
+    """Redirige vers /scan pour compatibilité avec le bot Telegram."""
+    body = await request.json()
+    text = body.get("text", "")
+    if not text:
+        raise HTTPException(status_code=400, detail="Champ 'text' requis.")
+
+    scan_result = await run_scan(text=text, source="bot_v1")
+
+    if not scan_result.get("success"):
+        raise HTTPException(status_code=422, detail=scan_result.get("error"))
+
+    # On sauvegarde aussi dans l'ancienne table pour ne pas casser
+    # les requêtes existantes du bot sur /history
+    analysis_id = save_analysis(
+        input_text=text,
+        is_scam=scan_result["is_scam"],
+        confidence=scan_result["confidence"],
+        risk_level=scan_result["risk_level"],
+        scam_category=scan_result.get("scam_category"),
+        rule_flags=scan_result.get("rule_flags", []),
+        ai_explanation=scan_result.get("ai_explanation"),
+        ai_provider=scan_result.get("ai_provider"),
+        ai_used=scan_result.get("ai_used", False),
+        processing_ms=scan_result.get("processing_ms"),
+        input_type=body.get("input_type", "text"),
+        source="bot_v1",
+    )
+
+    return {
+        "analysis_id": analysis_id,
+        "is_scam": scan_result["is_scam"],
+        "confidence": scan_result["confidence"],
+        "risk_level": scan_result["risk_level"],
+        "scam_category": scan_result.get("scam_category"),
+        "rule_flags": scan_result.get("rule_flags", []),
+        "explanation": scan_result.get("ai_explanation", ""),
+        "ai_used": scan_result.get("ai_used", False),
+        "processing_ms": scan_result.get("processing_ms", 0),
+    }
+
+
+@app.post("/fake-news", tags=["Compatibilité V1"], include_in_schema=False)
+async def fake_news_v1(request: Request):
+    """Redirige vers /scan pour compatibilité."""
+    body = await request.json()
+    contenu = body.get("contenu", "")
+    if not contenu:
+        raise HTTPException(status_code=400, detail="Champ 'contenu' requis.")
+
+    scan_result = await run_scan(text=contenu, source="bot_v1_fakenews")
+    return {
+        "success": True,
+        "analyse": scan_result.get("fake_news_detail", {}),
+    }
+
+
+# ─────────────────────────────────────────────
+# UTILITAIRES INTERNES
+# ─────────────────────────────────────────────
+
+def _detect_source(request: Request) -> str:
+    """Identifie la source de la requête depuis le user-agent."""
+    user_agent = request.headers.get("user-agent", "").lower()
+    if "telegram" in user_agent:
+        return "bot"
+    if "python" in user_agent:
+        return "api"
+    return "web"
+
+
+def _detect_report_type(content: str) -> str:
+    """
+    Détecte automatiquement le type de signalement depuis le contenu.
+    Retourne une catégorie parmi les valeurs valides.
+    """
+    content_lower = content.lower()
+
+    if any(kw in content_lower for kw in ["mtn", "orange money", "wave", "moov", "mobile money", "momo"]):
+        return "mobile_money"
+    if any(kw in content_lower for kw in ["http://", "https://", "www.", "site", "lien", "cliquer"]):
+        return "faux_site"
+    if any(kw in content_lower for kw in ["sms", "message", "numéro", "appel", "whatsapp"]):
+        return "sms_frauduleux"
+    if any(kw in content_lower for kw in ["emploi", "travail", "recrutement", "salaire", "poste"]):
+        return "faux_emploi"
+    if any(kw in content_lower for kw in ["héritage", "veuve", "général", "colonel", "amour", "rencontré"]):
+        return "broutage"
+
+    return "autre"
+
+
+# ─────────────────────────────────────────────
+# FAVICON ET FICHIERS STATIQUES
+# ─────────────────────────────────────────────
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
-    return (
-        FileResponse(_STATIC_DIR / "favicon.ico")
-        if (_STATIC_DIR / "favicon.ico").exists()
-        else Response(status_code=204)
-    )
+    favicon_path = _STATIC_DIR / "favicon.ico"
+    return FileResponse(favicon_path) if favicon_path.exists() else Response(status_code=204)
 
-
-# ─────────────────────────────────────────────
-# FICHIERS STATIQUES — dashboard web
-# ─────────────────────────────────────────────
-
-_STATIC_DIR = Path(__file__).parent / "static"
 
 if _STATIC_DIR.is_dir():
     app.mount("/", StaticFiles(directory=str(_STATIC_DIR), html=True), name="static")
 else:
     @app.get("/")
     async def root():
-        return {"message": "CIAlert API op\u00e9rationnelle \U0001f1e8\U0001f1ee", "docs": "/docs"}
+        return {"message": "CIAlert API V2.0", "docs": "/docs"}
 
 
 # ─────────────────────────────────────────────
