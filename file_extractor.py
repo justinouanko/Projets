@@ -2,8 +2,9 @@ import io
 import logging
 import shutil
 import os
-from typing import Tuple
 import logging
+from typing import Tuple
+
 
 # Initialisation du logger
 logger = logging.getLogger(__name__)
