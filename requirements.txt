@@ -10,3 +10,5 @@ groq
 Pillow
 pytesseract
 pdfplumber
+pdf2image
+google-generativeai
