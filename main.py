@@ -1,6 +1,6 @@
 """
 CIAlert — main.py
-Backend FastAPI : endpoints /analyze, /report, /analyze-file.
+Backend FastAPI : endpoints /analyze, /report, /analyze-file, /fake-news.
 """
 
 import logging
@@ -17,7 +17,11 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
 from agent import CIAlertAgent
-from database import init_db, save_analysis, save_report, get_global_stats, get_recent_analyses
+from database import (
+    init_db, save_analysis, save_report,
+    get_global_stats, get_recent_analyses,
+    save_fake_news_to_db
+)
 from file_extractor import extract_text
 from fake_news_agent import analyser_fake_news
 
@@ -86,7 +90,7 @@ class ReportResponse(BaseModel):
 class FakeNewsRequest(BaseModel):
     contenu: str
     type_contenu: str = "texte"  # "texte" ou "url"
- 
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -94,7 +98,7 @@ class FakeNewsRequest(BaseModel):
                 "type_contenu": "texte"
             }
         }
- 
+
 
 # ─────────────────────────────────────────────
 # ENDPOINT : POST /analyze
@@ -102,12 +106,6 @@ class FakeNewsRequest(BaseModel):
 
 @app.post("/analyze", response_model=AnalyzeResponse, tags=["Détection"])
 async def analyze(payload: AnalyzeRequest, request: Request):
-    """
-    Analyse un texte pour détecter une arnaque.
-
-    - **Niveau 1** : Règles locales (mots-clés, patterns)
-    - **Niveau 2** : IA (Groq / Gemini / Claude) si activée
-    """
     start = time.time()
     user_ip = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
@@ -178,7 +176,7 @@ async def report(payload: ReportRequest):
 
     return ReportResponse(
         report_id=report_id,
-        message="Signalement reçu. Merci de contribuer à la sécurité de la communauté 🙏",
+        message="Signalement re\u00e7u. Merci de contribuer \u00e0 la s\u00e9curit\u00e9 de la communaut\u00e9 \U0001f64f",
         status="pending"
     )
 
@@ -189,20 +187,12 @@ async def report(payload: ReportRequest):
 
 @app.post("/analyze-file", tags=["Détection"])
 async def analyze_file(file: UploadFile = File(...)):
-    """
-    Analyse une pièce jointe (PDF, image PNG/JPG, fichier texte).
-
-    Extrait le texte du fichier, puis applique le même moteur d'analyse
-    que /analyze. Retourne le verdict + un bloc file_info.
-    """
     start = time.time()
 
-    # ── Lecture ──────────────────────────────────────────────────────────────
     data = await file.read()
     content_type = file.content_type or ""
     filename = file.filename or "fichier_inconnu"
 
-    # ── Extraction du texte ──────────────────────────────────────────────────
     try:
         extracted = extract_text(data, content_type, filename)
     except ValueError as e:
@@ -210,7 +200,6 @@ async def analyze_file(file: UploadFile = File(...)):
 
     text = extracted["text"]
 
-    # ── Analyse IA (même agent que /analyze) ────────────────────────────────
     try:
         result = await agent.analyze(text=text, use_ai=True)
     except Exception as e:
@@ -219,7 +208,6 @@ async def analyze_file(file: UploadFile = File(...)):
 
     processing_ms = int((time.time() - start) * 1000)
 
-    # ── Sauvegarde (table analyses, source = file_upload) ────────────────────
     try:
         analysis_id = save_analysis(
             input_text=f"[FICHIER: {filename}]\n\n{text[:2000]}",
@@ -236,10 +224,9 @@ async def analyze_file(file: UploadFile = File(...)):
             source="file_upload"
         )
     except Exception as db_err:
-        logger.warning(f"Sauvegarde DB /analyze-file échouée : {db_err}")
+        logger.warning(f"Sauvegarde DB /analyze-file \u00e9chou\u00e9e : {db_err}")
         analysis_id = None
 
-    # ── Réponse ──────────────────────────────────────────────────────────────
     return {
         "analysis_id": analysis_id,
         "is_scam": result["is_scam"],
@@ -261,24 +248,68 @@ async def analyze_file(file: UploadFile = File(...)):
 
 
 # ─────────────────────────────────────────────
+# ENDPOINT : POST /fake-news
+# ─────────────────────────────────────────────
+
+@app.post("/fake-news", tags=["Fake News"])
+async def detect_fake_news(request: FakeNewsRequest):
+    """
+    Analyse un texte ou une URL pour détecter des signaux de manipulation.
+    Ne fait pas de fact-checking absolu — détecte des patterns rhétoriques
+    et contextuels de désinformation.
+    """
+    contenu = request.contenu.strip()
+    type_contenu = request.type_contenu.strip().lower()
+
+    if not contenu:
+        raise HTTPException(
+            status_code=400,
+            detail="Le champ 'contenu' est requis et ne peut pas \u00eatre vide."
+        )
+
+    if type_contenu not in ["texte", "url"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Le champ 'type_contenu' doit \u00eatre 'texte' ou 'url'."
+        )
+
+    if len(contenu) > 5000:
+        raise HTTPException(
+            status_code=400,
+            detail="Le contenu est trop long. Maximum 5000 caract\u00e8res."
+        )
+
+    resultat = analyser_fake_news(contenu, type_contenu)
+
+    try:
+        save_fake_news_to_db(contenu, type_contenu, resultat)
+    except Exception:
+        pass  # Ne pas bloquer la réponse si la DB échoue
+
+    return {
+        "success": True,
+        "contenu_analyse": contenu[:100] + "..." if len(contenu) > 100 else contenu,
+        "type_contenu": type_contenu,
+        "analyse": resultat
+    }
+
+
+# ─────────────────────────────────────────────
 # ENDPOINT : GET /history  /stats  /health
 # ─────────────────────────────────────────────
 
 @app.get("/history", tags=["Statistiques"])
 async def history(limit: int = 20):
-    """Dernières analyses (pour le dashboard)."""
     return get_recent_analyses(limit=limit)
 
 
 @app.get("/stats", tags=["Statistiques"])
 async def stats():
-    """Statistiques globales de la plateforme."""
     return get_global_stats()
 
 
 @app.get("/health", tags=["Système"])
 async def health():
-    """Vérification que l'API est opérationnelle."""
     return {"status": "ok", "service": "CIAlert API", "version": "1.0.0"}
 
 
@@ -290,56 +321,6 @@ async def favicon():
         else Response(status_code=204)
     )
 
-# ─────────────────────────────────────────────
-# ENDPOINT : POST / Fakes News
-# ─────────────────────────────────────────────
- 
-@app.post("/fake-news")
-async def detect_fake_news(request: FakeNewsRequest):
-    """
-    Analyse un texte ou une URL pour détecter des signaux de manipulation.
-    Ne fait pas de fact-checking absolu — détecte des patterns rhétoriques
-    et contextuels de désinformation.
-    """
- 
-    contenu = request.contenu.strip()
-    type_contenu = request.type_contenu.strip().lower()
- 
-    # Validation basique
-    if not contenu:
-        raise HTTPException(
-            status_code=400,
-            detail="Le champ 'contenu' est requis et ne peut pas être vide."
-        )
- 
-    if type_contenu not in ["texte", "url"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Le champ 'type_contenu' doit être 'texte' ou 'url'."
-        )
- 
-    if len(contenu) > 5000:
-        raise HTTPException(
-            status_code=400,
-            detail="Le contenu est trop long. Maximum 5000 caractères."
-        )
- 
-    # Analyse
-    resultat = analyser_fake_news(contenu, type_contenu)
- 
-    # Sauvegarde en base (optionnel — même table que les signalements)
-    try:
-        save_fake_news_to_db(contenu, type_contenu, resultat)
-    except Exception:
-        pass  # Ne pas bloquer la réponse si la DB échoue
- 
-    return {
-        "success": True,
-        "contenu_analyse": contenu[:100] + "..." if len(contenu) > 100 else contenu,
-        "type_contenu": type_contenu,
-        "analyse": resultat
-    }
- 
 
 # ─────────────────────────────────────────────
 # FICHIERS STATIQUES — dashboard web
@@ -352,7 +333,7 @@ if _STATIC_DIR.is_dir():
 else:
     @app.get("/")
     async def root():
-        return {"message": "CIAlert API opérationnelle 🇨🇮", "docs": "/docs"}
+        return {"message": "CIAlert API op\u00e9rationnelle \U0001f1e8\U0001f1ee", "docs": "/docs"}
 
 
 # ─────────────────────────────────────────────
