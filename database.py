@@ -208,6 +208,43 @@ def init_db():
             )
         """)
 
+def save_fake_news_to_db(contenu: str, type_contenu: str, resultat: dict):
+    """Sauvegarde une analyse fake news en base de données."""
+    import json
+    from database import get_db_connection
+ 
+    conn = get_db_connection()
+    cursor = conn.cursor()
+ 
+    # PostgreSQL vs SQLite (même pattern que ton database.py existant)
+    if os.environ.get("DATABASE_URL"):
+        cursor.execute("""
+            INSERT INTO fake_news_analyses
+                (contenu, type_contenu, verdict, score_manipulation, resultat_json)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (
+            contenu[:500],
+            type_contenu,
+            resultat.get("verdict", "ERREUR"),
+            resultat.get("score_manipulation", 0),
+            json.dumps(resultat, ensure_ascii=False)
+        ))
+    else:
+        cursor.execute("""
+            INSERT INTO fake_news_analyses
+                (contenu, type_contenu, verdict, score_manipulation, resultat_json)
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            contenu[:500],
+            type_contenu,
+            resultat.get("verdict", "ERREUR"),
+            resultat.get("score_manipulation", 0),
+            json.dumps(resultat, ensure_ascii=False)
+        ))
+ 
+    conn.commit()
+    conn.close()
+        
         # Index
         cur.execute("CREATE INDEX IF NOT EXISTS idx_analyses_created ON analyses(created_at)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_analyses_scam ON analyses(is_scam)")
