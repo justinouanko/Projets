@@ -9,7 +9,10 @@ import json
 import httpx
 from abc import ABC, abstractmethod
 from dotenv import load_dotenv
-
+import google.generativeai as genai
+from PIL import Image
+import io
+import os
 load_dotenv()
 
 AI_PROVIDER = os.getenv("AI_PROVIDER", "groq").lower()
@@ -145,6 +148,30 @@ class GeminiProvider(AIProvider):
             }
 
 
+def analyser_image_visuellement(image_data: bytes) -> str:
+    """
+    Utilise Gemini Vision pour extraire le texte et comprendre l'image.
+    """
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # Conversion des bytes en objet Image PIL
+        img = Image.open(io.BytesIO(image_data))
+        
+        prompt = """
+        Tu es un expert en cybersécurité en Côte d'Ivoire. 
+        Examine cette image (capture d'écran WhatsApp, SMS ou document).
+        1. Extrais TOUT le texte lisible.
+        2. Si c'est une arnaque (Mobile Money, faux gain, phishing), explique pourquoi.
+        Réponds uniquement avec le texte extrait si tu ne vois pas d'arnaque, 
+        ou ajoute ton analyse si c'est suspect.
+        """
+        
+        response = model.generate_content([prompt, img])
+        return response.text
+    except Exception as e:
+        print(f"❌ Erreur Gemini Vision : {e}")
+        return ""
 # ─────────────────────────────────────────────
 # CLAUDE (payant — meilleur)
 # ─────────────────────────────────────────────
