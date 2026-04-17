@@ -149,28 +149,31 @@ class GeminiProvider(AIProvider):
 
 
 def analyser_image_visuellement(image_data: bytes) -> str:
-    """
-    Utilise Gemini Vision pour extraire le texte et comprendre l'image.
-    """
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_key:
+        return "Erreur : Clé API Vision non configurée."
+
     try:
+        import google.generativeai as genai
+        genai.configure(api_key=gemini_key)
+        
+        # On utilise le modèle sans le préfixe 'models/' si on passe par la lib
         model = genai.GenerativeModel('gemini-1.5-flash')
         
-        # Conversion des bytes en objet Image PIL
         img = Image.open(io.BytesIO(image_data))
         
-        prompt = """
-        Tu es un expert en cybersécurité en Côte d'Ivoire. 
-        Examine cette image (capture d'écran WhatsApp, SMS ou document).
-        1. Extrais TOUT le texte lisible.
-        2. Si c'est une arnaque (Mobile Money, faux gain, phishing), explique pourquoi.
-        Réponds uniquement avec le texte extrait si tu ne vois pas d'arnaque, 
-        ou ajoute ton analyse si c'est suspect.
-        """
+        # Prompt optimisé pour ne pas renvoyer de vide
+        prompt = "Extrais tout le texte de cette image et analyse s'il y a une arnaque."
         
         response = model.generate_content([prompt, img])
-        return response.text
+        
+        if response and response.text:
+            return response.text
+        return "L'IA n'a pu lire aucun texte sur cette image."
+
     except Exception as e:
-        print(f"❌ Erreur Gemini Vision : {e}")
+        logger.error(f"❌ Erreur Gemini Vision : {e}")
+        # Si même Flash échoue, on peut tenter 'gemini-1.5-pro' en dernier recours
         return ""
 # ─────────────────────────────────────────────
 # CLAUDE (payant — meilleur)
