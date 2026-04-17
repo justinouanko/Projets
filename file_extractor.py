@@ -12,6 +12,52 @@ from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
+# --- CONFIGURATION TESSERACT POUR RAILWAY ---
+try:
+    import pytesseract
+    # On cherche où Nixpacks a installé tesseract
+    tesseract_path = shutil.which("tesseract")
+    if tesseract_path:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_path
+        logger.info(f"✅ Tesseract configuré sur : {tesseract_path}")
+    else:
+        logger.warning("⚠️ Tesseract binaire non trouvé dans le PATH.")
+except ImportError:
+    logger.error("❌ Librairie pytesseract manquante.")
+# --------------------------------------------
+def extract_from_image(data: bytes) -> Tuple[str, str]:
+    try:
+        from PIL import Image
+        import pytesseract
+
+        img = Image.open(io.BytesIO(data))
+        if img.mode not in ("RGB", "L"):
+            img = img.convert("RGB")
+
+        # Tentative OCR locale
+        text = pytesseract.image_to_string(img, lang="fra+eng")
+        
+        if text.strip():
+            return text.strip(), "tesseract_ocr"
+        
+        # --- STRATÉGIE DE SECOURS : IA VISION ---
+        logger.info("OCR local vide, tentative via IA Vision...")
+        from ai_provider import analyser_image_visuellement # Importation locale pour éviter les cycles
+        text_ai = analyser_image_visuellement(data) 
+        
+        if text_ai:
+            return text_ai, "ia_vision_fallback"
+            
+        raise ValueError("Aucun texte détecté, même par l'IA.")
+
+    except Exception as e:
+        logger.error(f"Erreur OCR image : {e}")
+        # Si Tesseract n'est pas là, on tente QUAND MÊME l'IA avant de crash
+        try:
+            from ai_provider import analyser_image_visuellement
+            return analyser_image_visuellement(data), "ia_vision_emergency"
+        except:
+            raise ValueError(f"Échec total de l'extraction image : {e}")
 # ── PDF ──────────────────────────────────────────────────────────────────────
 
 def extract_from_pdf(data: bytes) -> Tuple[str, str]:
