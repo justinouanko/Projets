@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from agent import CIAlertAgent
 from database import init_db, save_analysis, save_report, get_global_stats, get_recent_analyses
 from file_extractor import extract_text
+from fake_news_agent import analyser_fake_news
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +83,18 @@ class ReportResponse(BaseModel):
     message: str
     status: str
 
+class FakeNewsRequest(BaseModel):
+    contenu: str
+    type_contenu: str = "texte"  # "texte" ou "url"
+ 
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "contenu": "URGENT !!! Le gouvernement cache la vérité sur Orange Money...",
+                "type_contenu": "texte"
+            }
+        }
+ 
 
 # ─────────────────────────────────────────────
 # ENDPOINT : POST /analyze
@@ -277,6 +290,56 @@ async def favicon():
         else Response(status_code=204)
     )
 
+# ─────────────────────────────────────────────
+# ENDPOINT : POST / Fakes News
+# ─────────────────────────────────────────────
+ 
+@app.post("/fake-news")
+async def detect_fake_news(request: FakeNewsRequest):
+    """
+    Analyse un texte ou une URL pour détecter des signaux de manipulation.
+    Ne fait pas de fact-checking absolu — détecte des patterns rhétoriques
+    et contextuels de désinformation.
+    """
+ 
+    contenu = request.contenu.strip()
+    type_contenu = request.type_contenu.strip().lower()
+ 
+    # Validation basique
+    if not contenu:
+        raise HTTPException(
+            status_code=400,
+            detail="Le champ 'contenu' est requis et ne peut pas être vide."
+        )
+ 
+    if type_contenu not in ["texte", "url"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Le champ 'type_contenu' doit être 'texte' ou 'url'."
+        )
+ 
+    if len(contenu) > 5000:
+        raise HTTPException(
+            status_code=400,
+            detail="Le contenu est trop long. Maximum 5000 caractères."
+        )
+ 
+    # Analyse
+    resultat = analyser_fake_news(contenu, type_contenu)
+ 
+    # Sauvegarde en base (optionnel — même table que les signalements)
+    try:
+        save_fake_news_to_db(contenu, type_contenu, resultat)
+    except Exception:
+        pass  # Ne pas bloquer la réponse si la DB échoue
+ 
+    return {
+        "success": True,
+        "contenu_analyse": contenu[:100] + "..." if len(contenu) > 100 else contenu,
+        "type_contenu": type_contenu,
+        "analyse": resultat
+    }
+ 
 
 # ─────────────────────────────────────────────
 # FICHIERS STATIQUES — dashboard web
