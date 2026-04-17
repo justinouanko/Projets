@@ -9,14 +9,7 @@ import json
 import httpx
 from abc import ABC, abstractmethod
 from dotenv import load_dotenv
-import google.generativeai as genai
-from PIL import Image
-import io
-import os
-import logging
 
-# Définition du logger pour ce fichier
-logger = logging.getLogger(__name__)
 load_dotenv()
 
 AI_PROVIDER = os.getenv("AI_PROVIDER", "groq").lower()
@@ -152,33 +145,6 @@ class GeminiProvider(AIProvider):
             }
 
 
-def analyser_image_visuellement(image_data: bytes) -> str:
-    gemini_key = os.getenv("GEMINI_API_KEY")
-    if not gemini_key:
-        return "Erreur : Clé API Vision non configurée."
-
-    try:
-        import google.generativeai as genai
-        genai.configure(api_key=gemini_key)
-        
-        # On utilise le modèle sans le préfixe 'models/' si on passe par la lib
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        img = Image.open(io.BytesIO(image_data))
-        
-        # Prompt optimisé pour ne pas renvoyer de vide
-        prompt = "Extrais tout le texte de cette image et analyse s'il y a une arnaque."
-        
-        response = model.generate_content([prompt, img])
-        
-        if response and response.text:
-            return response.text
-        return "L'IA n'a pu lire aucun texte sur cette image."
-
-    except Exception as e:
-        logger.error(f"❌ Erreur Gemini Vision : {e}")
-        # Si même Flash échoue, on peut tenter 'gemini-1.5-pro' en dernier recours
-        return ""
 # ─────────────────────────────────────────────
 # CLAUDE (payant — meilleur)
 # ─────────────────────────────────────────────
