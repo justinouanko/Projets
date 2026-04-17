@@ -6,6 +6,8 @@ Utilis\u00e9 par le endpoint POST /analyze-file de CIAlert.
 
 import io
 import logging
+import shutil
+import os
 from typing import Tuple
 
 logger = logging.getLogger(__name__)
