@@ -13,6 +13,10 @@ import google.generativeai as genai
 from PIL import Image
 import io
 import os
+import logging
+
+# Définition du logger pour ce fichier
+logger = logging.getLogger(__name__)
 load_dotenv()
 
 AI_PROVIDER = os.getenv("AI_PROVIDER", "groq").lower()
