@@ -1,5 +1,0 @@
-[phases.setup]
-nixPkgs = ["tesseract", "tesseract-ocr-fra", "tesseract-ocr-eng"]
-
-[variables]
-TESSDATA_PREFIX = "/nix/store/.../share/tessdata" # Optionnel, Nix le gère souvent seul
