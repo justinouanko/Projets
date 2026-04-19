@@ -2,11 +2,11 @@
 CIAlert — bot.py
 Bot Telegram de détection d'arnaques — V2.0.
 Toutes les analyses passent par POST /scan.
+Supporte : texte, liens, numéros, photos, documents.
 """
 
 import logging
 import os
-import time
 
 import httpx
 from dotenv import load_dotenv
@@ -43,14 +43,11 @@ logging.basicConfig(
 logger = logging.getLogger("CIAlert·Bot")
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-
-# URL de l'API — en local pointe vers localhost, en prod vers Railway
-API_URL = os.getenv("API_URL", "http://localhost:8000")
+API_URL        = os.getenv("API_URL", "http://localhost:8000")
 
 # États du flux de signalement
 AWAIT_REPORT_PLATFORM, AWAIT_REPORT_AMOUNT, AWAIT_REPORT_DESC = range(3)
 
-# Emojis par niveau de risque
 RISK_EMOJI = {
     "FAIBLE":   "🟢",
     "MOYEN":    "🟡",
@@ -60,18 +57,43 @@ RISK_EMOJI = {
 
 
 # ─────────────────────────────────────────────
-# APPEL À L'API /scan
+# APPELS API
 # ─────────────────────────────────────────────
 
-async def call_scan(text: str) -> dict:
-    """
-    Envoie le texte à POST /scan et retourne le résultat.
-    Lève une exception si l'API ne répond pas.
-    """
+async def call_scan_text(text: str) -> dict:
+    """Envoie du texte à POST /scan."""
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.post(
             f"{API_URL}/scan",
             data={"content": text},
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+async def call_scan_file(file_bytes: bytes, filename: str, content_type: str) -> dict:
+    """Envoie un fichier à POST /scan."""
+    async with httpx.AsyncClient(timeout=60) as client:
+        response = await client.post(
+            f"{API_URL}/scan",
+            files={"file": (filename, file_bytes, content_type)},
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+async def call_scan_text_and_file(
+    text: str,
+    file_bytes: bytes,
+    filename: str,
+    content_type: str,
+) -> dict:
+    """Envoie texte + fichier ensemble à POST /scan."""
+    async with httpx.AsyncClient(timeout=60) as client:
+        response = await client.post(
+            f"{API_URL}/scan",
+            data={"content": text},
+            files={"file": (filename, file_bytes, content_type)},
         )
         response.raise_for_status()
         return response.json()
@@ -84,8 +106,8 @@ async def call_scan(text: str) -> dict:
 def main_keyboard():
     return ReplyKeyboardMarkup(
         [
-            [KeyboardButton("🔍 Analyser"),    KeyboardButton("📊 Statistiques")],
-            [KeyboardButton("⚠️ Signaler"),    KeyboardButton("❓ Aide")],
+            [KeyboardButton("🔍 Analyser"),  KeyboardButton("📊 Statistiques")],
+            [KeyboardButton("⚠️ Signaler"), KeyboardButton("❓ Aide")],
         ],
         resize_keyboard=True,
     )
@@ -94,14 +116,14 @@ def main_keyboard():
 def report_platform_keyboard():
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("MTN MoMo",     callback_data="rplat:MTN"),
-            InlineKeyboardButton("Orange Money",  callback_data="rplat:Orange"),
+            InlineKeyboardButton("MTN MoMo",    callback_data="rplat:MTN"),
+            InlineKeyboardButton("Orange Money", callback_data="rplat:Orange"),
         ],
         [
-            InlineKeyboardButton("Wave",          callback_data="rplat:Wave"),
-            InlineKeyboardButton("WhatsApp",      callback_data="rplat:WhatsApp"),
+            InlineKeyboardButton("Wave",         callback_data="rplat:Wave"),
+            InlineKeyboardButton("WhatsApp",     callback_data="rplat:WhatsApp"),
         ],
-        [InlineKeyboardButton("Passer",           callback_data="rplat:skip")],
+        [InlineKeyboardButton("Passer",          callback_data="rplat:skip")],
     ])
 
 
@@ -117,10 +139,7 @@ def result_keyboard(scan_id: int):
 # ─────────────────────────────────────────────
 
 def format_result(data: dict) -> str:
-    """
-    Formate le résultat de /scan en message Telegram.
-    Utilise les champs simplifiés du response_builder.
-    """
+    """Formate le résultat de /scan en message Telegram."""
     is_scam    = data.get("is_scam", False)
     risk_level = data.get("risk_level", "FAIBLE")
     emoji      = RISK_EMOJI.get(risk_level, "⚪")
@@ -133,10 +152,15 @@ def format_result(data: dict) -> str:
     confidence = round((data.get("confidence") or 0) * 100)
     conf_bar   = "█" * (confidence // 10) + "░" * (10 - confidence // 10)
 
-    # Message principal venant du response_builder
     message     = data.get("message", "")
     explanation = data.get("explanation", "")
     advice      = data.get("advice", "")
+
+    # Infos fichier si présent
+    file_info = data.get("file_info")
+    file_line = ""
+    if file_info:
+        file_line = f"📎 _{file_info.get('filename', '')}_ · {file_info.get('size_kb', '')} Ko\n\n"
 
     # Avertissements supplémentaires
     extras = []
@@ -145,17 +169,12 @@ def format_result(data: dict) -> str:
     if data.get("fake_news") and data["fake_news"].get("verdict") != "FIABLE":
         extras.append(f"🔍 _{data['fake_news'].get('message', '')}_")
 
-    extras_txt = "\n".join(extras)
-
     scan_id = data.get("scan_id", "—")
 
-    lines = [
-        header,
-        "",
-        f"📊 *Confiance :* {confidence}%",
-        f"`{conf_bar}`",
-        "",
-    ]
+    lines = [header, "", f"📊 *Confiance :* {confidence}%", f"`{conf_bar}`", ""]
+
+    if file_line:
+        lines.append(file_line)
 
     if message:
         lines += [f"💬 {message}", ""]
@@ -166,13 +185,17 @@ def format_result(data: dict) -> str:
     if advice:
         lines += [f"💡 *Que faire ?* {advice}", ""]
 
-    if extras_txt:
-        lines += [extras_txt, ""]
+    for extra in extras:
+        lines += [extra, ""]
 
-    lines.append(f"┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄")
+    lines.append("┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄")
     lines.append(f"🆔 Analyse #{scan_id}")
 
     return "\n".join(lines)
+
+
+def format_error(context: str) -> str:
+    return f"L'analyse a échoué ({context}). Réessaye dans quelques instants."
 
 
 # ─────────────────────────────────────────────
@@ -184,9 +207,9 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"🇨🇮 *Bienvenue sur CIAlert, {name} !*\n\n"
         "Je suis ton assistant anti-arnaques pour la Côte d'Ivoire.\n\n"
-        "Envoie-moi directement un SMS suspect, un lien douteux "
-        "ou un message WhatsApp — j'analyse tout automatiquement.\n\n"
-        "Utilise le menu ci-dessous pour démarrer 👇",
+        "Envoie-moi un SMS suspect, un lien, un numéro "
+        "ou une capture d'écran — j'analyse tout automatiquement.\n\n"
+        "Utilise le menu ci-dessous 👇",
         parse_mode=ParseMode.MARKDOWN,
         reply_markup=main_keyboard(),
     )
@@ -195,12 +218,14 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def cmd_aide(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "❓ *Comment utiliser CIAlert ?*\n\n"
-        "Envoie n'importe quel contenu suspect directement :\n"
-        "• Un SMS : _«Vous avez gagné 500 000 FCFA…»_\n"
+        "Envoie n'importe quel contenu suspect :\n"
+        "• Un SMS ou message WhatsApp\n"
         "• Un lien : `http://orange-money-bonus.tk`\n"
-        "• Un numéro : `+225 07 00 00 00`\n\n"
-        "CIAlert détecte automatiquement le type et analyse.\n\n"
-        "🔒 Tes messages sont analysés de façon anonyme.",
+        "• Un numéro : `+225 07 00 00 00`\n"
+        "• Une capture d'écran (photo)\n"
+        "• Un fichier PDF ou texte\n\n"
+        "CIAlert détecte le type automatiquement et analyse.\n\n"
+        "🔒 Analyse anonyme.",
         parse_mode=ParseMode.MARKDOWN,
         reply_markup=main_keyboard(),
     )
@@ -232,7 +257,7 @@ async def cmd_stats(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 # ─────────────────────────────────────────────
-# ANALYSE DE TEXTE
+# ANALYSE — TEXTE
 # ─────────────────────────────────────────────
 
 async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -253,32 +278,94 @@ async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if text == "❓ Aide":
         return await cmd_aide(update, ctx)
 
-    # Analyse via /scan
     await update.message.chat.send_action(ChatAction.TYPING)
 
     try:
-        result = await call_scan(text)
+        result = await call_scan_text(text)
     except httpx.HTTPStatusError as error:
-        logger.error(f"Erreur API /scan : {error}")
-        await update.message.reply_text(
-            "L'analyse a échoué. Réessaye dans quelques instants."
-        )
+        logger.error(f"Erreur API /scan texte : {error}")
+        await update.message.reply_text(format_error("API"))
         return
     except Exception as error:
-        logger.error(f"Erreur inattendue /scan : {error}")
-        await update.message.reply_text("Une erreur s'est produite.")
+        logger.error(f"Erreur inattendue /scan texte : {error}")
+        await update.message.reply_text(format_error("inattendue"))
         return
 
-    # Sauvegarde du contexte pour le signalement éventuel
     ctx.user_data["last_scan_id"] = result.get("scan_id")
     ctx.user_data["last_text"]    = text
-
-    scan_id = result.get("scan_id") or 0
 
     await update.message.reply_text(
         format_result(result),
         parse_mode=ParseMode.MARKDOWN,
-        reply_markup=result_keyboard(scan_id),
+        reply_markup=result_keyboard(result.get("scan_id") or 0),
+    )
+
+
+# ─────────────────────────────────────────────
+# ANALYSE — FICHIERS ET PHOTOS
+# ─────────────────────────────────────────────
+
+async def handle_file(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """
+    Reçoit une photo ou un document Telegram,
+    télécharge le fichier en mémoire et l'envoie à /scan.
+    La légende du fichier est envoyée avec si présente.
+    """
+    msg = update.message
+
+    # Détermination du type
+    if msg.photo:
+        tg_file      = await msg.photo[-1].get_file()  # meilleure résolution
+        filename     = "capture.jpg"
+        content_type = "image/jpeg"
+    elif msg.document:
+        tg_file      = await msg.document.get_file()
+        filename     = msg.document.file_name or "fichier"
+        content_type = msg.document.mime_type or "application/octet-stream"
+    else:
+        return
+
+    await msg.chat.send_action(ChatAction.UPLOAD_DOCUMENT)
+
+    # Téléchargement en mémoire
+    try:
+        file_bytes = bytes(await tg_file.download_as_bytearray())
+    except Exception as error:
+        logger.error(f"Erreur téléchargement fichier Telegram : {error}")
+        await msg.reply_text("Impossible de récupérer le fichier. Réessaye.")
+        return
+
+    await msg.chat.send_action(ChatAction.TYPING)
+
+    # Légende éventuelle accompagnant le fichier
+    caption = (msg.caption or "").strip()
+
+    try:
+        if caption:
+            result = await call_scan_text_and_file(caption, file_bytes, filename, content_type)
+        else:
+            result = await call_scan_file(file_bytes, filename, content_type)
+
+    except httpx.HTTPStatusError as error:
+        logger.error(f"Erreur API /scan fichier ({error.response.status_code})")
+        if error.response.status_code == 422:
+            detail = error.response.json().get("detail", "Format non supporté.")
+            await msg.reply_text(f"Ce fichier ne peut pas être analysé : {detail}")
+        else:
+            await msg.reply_text(format_error("API"))
+        return
+    except Exception as error:
+        logger.error(f"Erreur inattendue /scan fichier : {error}")
+        await msg.reply_text(format_error("inattendue"))
+        return
+
+    ctx.user_data["last_scan_id"] = result.get("scan_id")
+    ctx.user_data["last_text"]    = caption or filename
+
+    await msg.reply_text(
+        format_result(result),
+        parse_mode=ParseMode.MARKDOWN,
+        reply_markup=result_keyboard(result.get("scan_id") or 0),
     )
 
 
@@ -287,10 +374,9 @@ async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ─────────────────────────────────────────────
 
 async def start_report(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Démarre le flux de signalement manuel."""
     ctx.user_data.setdefault("report_data", {})
-    ctx.user_data["report_data"]["content"]  = ctx.user_data.get("last_text", "Signalement Telegram")
-    ctx.user_data["report_data"]["scan_id"]  = ctx.user_data.get("last_scan_id")
+    ctx.user_data["report_data"]["content"] = ctx.user_data.get("last_text", "Signalement Telegram")
+    ctx.user_data["report_data"]["scan_id"] = ctx.user_data.get("last_scan_id")
 
     msg = update.message or update.callback_query.message
     await msg.reply_text(
@@ -339,14 +425,13 @@ async def report_desc_received(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     try:
         report_id = save_report(
             reported_text=d.get("content", "—"),
-            report_type="autre",        # détecté automatiquement côté DB
+            report_type="autre",
             scan_id=d.get("scan_id"),
             victim_amount=d.get("amount"),
             victim_platform=d.get("platform"),
             description=d.get("description"),
         )
 
-        # Alimentation du répertoire de numéros
         from phone_registry import register_phone_from_text
         register_phone_from_text(
             text=d.get("content", ""),
@@ -388,13 +473,14 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     if data == "new_analysis":
         await query.message.reply_text(
-            "Envoie le texte à analyser :", reply_markup=main_keyboard()
+            "Envoie le texte, la photo ou le fichier à analyser :",
+            reply_markup=main_keyboard(),
         )
     elif data.startswith("report_from:"):
         scan_id = int(data.split(":")[1])
         ctx.user_data.setdefault("report_data", {})
-        ctx.user_data["report_data"]["scan_id"]  = scan_id
-        ctx.user_data["report_data"]["content"]  = ctx.user_data.get("last_text", "—")
+        ctx.user_data["report_data"]["scan_id"] = scan_id
+        ctx.user_data["report_data"]["content"] = ctx.user_data.get("last_text", "—")
         await query.message.reply_text(
             "⚠️ *Signaler une arnaque*\n\nQuelle plateforme est concernée ?",
             parse_mode=ParseMode.MARKDOWN,
@@ -414,7 +500,6 @@ def main():
 
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
-    # Flux de signalement
     report_conv = ConversationHandler(
         entry_points=[CommandHandler("signaler", start_report)],
         states={
@@ -424,6 +509,7 @@ def main():
         },
         fallbacks=[CommandHandler("annuler", report_cancel)],
         allow_reentry=True,
+        per_message=False,  # supprime le warning PTBUserWarning
     )
 
     app.add_handler(CommandHandler("start",    cmd_start))
@@ -432,6 +518,12 @@ def main():
     app.add_handler(CommandHandler("stats",    cmd_stats))
     app.add_handler(report_conv)
     app.add_handler(CallbackQueryHandler(handle_callback))
+
+    # Fichiers et photos — avant le handler texte
+    app.add_handler(MessageHandler(filters.PHOTO,        handle_file))
+    app.add_handler(MessageHandler(filters.Document.ALL, handle_file))
+
+    # Texte en dernier
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
     logger.info("CIAlert Bot V2.0 démarré.")

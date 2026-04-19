@@ -11,3 +11,4 @@ pdfplumber
 pdf2image
 pytesseract
 Pillow
+httpx
