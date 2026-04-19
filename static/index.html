@@ -5,25 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CIAlert — Détecteur d'arnaques 🇨🇮</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
-    /* ── VARIABLES ────────────────────────────────────────────────────── */
+    /* ── VARIABLES ─────────────────────────────────────────────────── */
     :root {
-      --orange:      #F4601A;
+      --orange:      #FF5C1A;
       --orange-soft: #FFF0E8;
-      --green:       #16A34A;
-      --green-soft:  #DCFCE7;
-      --red:         #DC2626;
+      --orange-dim:  rgba(255,92,26,0.12);
+      --green:       #1DB87E;
+      --green-soft:  #D1FAE5;
+      --red:         #E24B4A;
       --red-soft:    #FEE2E2;
-      --yellow:      #D97706;
+      --yellow:      #F5A623;
       --yellow-soft: #FEF3C7;
-      --font-head:   'Bricolage Grotesque', sans-serif;
+      --font-head:   'Syne', sans-serif;
       --font-body:   'DM Sans', sans-serif;
       --radius-sm:   8px;
       --radius-md:   14px;
       --radius-lg:   20px;
       --transition:  0.2s ease;
     }
+
     [data-theme="light"] {
       --bg:            #F8F7F4;
       --bg-alt:        #EFEDE8;
@@ -36,22 +38,25 @@
       --text-muted:    #A09B94;
       --shadow:        0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.05);
       --shadow-lg:     0 4px 24px rgba(0,0,0,0.1);
-    }
-    [data-theme="dark"] {
-      --bg:            #111110;
-      --bg-alt:        #1A1917;
-      --surface:       #1E1D1B;
-      --surface-2:     #252320;
-      --border:        #2E2C29;
-      --border-strong: #3D3A36;
-      --text:          #F0EDE8;
-      --text-dim:      #A09890;
-      --text-muted:    #6B6560;
-      --shadow:        0 1px 3px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.2);
-      --shadow-lg:     0 4px 24px rgba(0,0,0,0.4);
+      --nav-bg:        rgba(255,255,255,0.95);
     }
 
-    /* ── RESET ────────────────────────────────────────────────────────── */
+    [data-theme="dark"] {
+      --bg:            #12102B;
+      --bg-alt:        #1C1A38;
+      --surface:       #1C1A38;
+      --surface-2:     #232145;
+      --border:        rgba(255,255,255,0.08);
+      --border-strong: rgba(255,255,255,0.15);
+      --text:          #F0EEF8;
+      --text-dim:      #8E8BB0;
+      --text-muted:    #6B6896;
+      --shadow:        0 1px 3px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.2);
+      --shadow-lg:     0 4px 24px rgba(0,0,0,0.4);
+      --nav-bg:        rgba(18,16,43,0.97);
+    }
+
+    /* ── RESET ─────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
     body {
@@ -64,47 +69,52 @@
       transition: background var(--transition), color var(--transition);
     }
 
-    /* ── HEADER ───────────────────────────────────────────────────────── */
-    header {
+    /* ── NAV ────────────────────────────────────────────────────────── */
+    nav {
       position: sticky; top: 0; z-index: 100;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 1rem 2.5rem;
-      background: var(--surface);
+      padding: 0.9rem 2.5rem;
+      background: var(--nav-bg);
       border-bottom: 1px solid var(--border);
-      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       transition: background var(--transition), border-color var(--transition);
     }
+
+    /* Logo */
     .logo {
+      display: flex; align-items: center; gap: 0.6rem;
+      text-decoration: none;
+    }
+    .logo-icon { width: 34px; height: 34px; flex-shrink: 0; }
+    .logo-name {
       font-family: var(--font-head);
-      font-weight: 800; font-size: 1.5rem; letter-spacing: -0.03em;
-      display: flex; align-items: center; gap: 0.5rem;
+      font-weight: 800; font-size: 1.25rem;
+      letter-spacing: -0.03em; color: var(--text);
     }
-    .logo-flag {
-      width: 22px; height: 15px;
-      background: linear-gradient(90deg, #f77f00 33%, #fff 33% 66%, #009a44 66%);
-      border-radius: 3px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.15);
-    }
-    .logo span.ci { color: var(--orange); }
+    .logo-name span { color: var(--orange); }
 
-    .header-right { display: flex; align-items: center; gap: 1rem; }
+    /* Liens nav */
+    .nav-links {
+      display: flex; align-items: center; gap: 1.5rem;
+    }
+    .nav-links a {
+      font-size: 0.85rem; font-weight: 500;
+      color: var(--text-dim); text-decoration: none;
+      transition: color var(--transition);
+    }
+    .nav-links a:hover { color: var(--text); }
 
-    .status-pill {
-      font-size: 0.72rem; font-weight: 600;
-      padding: 0.3rem 0.8rem; border-radius: 99px;
-      background: var(--green-soft); color: var(--green);
-      letter-spacing: 0.04em;
-      display: flex; align-items: center; gap: 0.4rem;
+    .nav-right { display: flex; align-items: center; gap: 0.75rem; }
+
+    .btn-api {
+      background: var(--orange); color: #fff;
+      font-family: var(--font-body); font-size: 0.82rem; font-weight: 600;
+      padding: 0.4rem 1rem; border: none; border-radius: var(--radius-sm);
+      cursor: pointer; text-decoration: none;
+      transition: opacity var(--transition);
     }
-    .status-pill::before {
-      content: ''; width: 6px; height: 6px;
-      background: var(--green); border-radius: 50%;
-      animation: pulse-dot 2s ease-in-out infinite;
-    }
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50%       { opacity: .6; transform: scale(.8); }
-    }
+    .btn-api:hover { opacity: 0.88; }
 
     /* Thème toggle */
     .theme-toggle { position: relative; width: 52px; height: 28px; cursor: pointer; }
@@ -126,30 +136,61 @@
     }
     [data-theme="dark"] .theme-thumb { transform: translateX(24px); }
 
-    /* ── MAIN ─────────────────────────────────────────────────────────── */
+    /* Status pill */
+    .status-pill {
+      font-size: 0.72rem; font-weight: 600;
+      padding: 0.28rem 0.75rem; border-radius: 99px;
+      background: rgba(29,184,126,0.12); color: var(--green);
+      display: flex; align-items: center; gap: 0.4rem;
+    }
+    .status-pill::before {
+      content: ''; width: 6px; height: 6px;
+      background: var(--green); border-radius: 50%;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: .5; transform: scale(.75); }
+    }
+
+    /* ── MAIN ───────────────────────────────────────────────────────── */
     main { max-width: 1080px; margin: 0 auto; padding: 3rem 2rem 4rem; }
 
-    /* ── HERO ─────────────────────────────────────────────────────────── */
+    /* ── HERO ───────────────────────────────────────────────────────── */
     .hero {
       text-align: center; margin-bottom: 2.5rem;
       animation: fade-up 0.5s ease both;
     }
+
     .hero-badge {
-      display: inline-flex; align-items: center; gap: 0.4rem;
-      background: var(--orange-soft); color: var(--orange);
-      font-size: 0.72rem; font-weight: 600;
-      letter-spacing: 0.06em; text-transform: uppercase;
-      padding: 0.3rem 0.9rem; border-radius: 99px; margin-bottom: 1.25rem;
+      display: inline-flex; align-items: center; gap: 0.45rem;
+      background: var(--orange-dim);
+      border: 1px solid rgba(255,92,26,0.25);
+      color: var(--orange);
+      font-size: 0.75rem; font-weight: 600;
+      padding: 0.32rem 0.9rem; border-radius: 99px; margin-bottom: 1.25rem;
     }
+    .badge-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--orange);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
     .hero h1 {
       font-family: var(--font-head); font-weight: 800;
       font-size: clamp(2rem, 5vw, 3.2rem);
       line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 1rem;
     }
-    .hero h1 em { font-style: normal; color: var(--orange); }
+    .hero h1 em {
+      font-style: normal;
+      background: linear-gradient(90deg, var(--orange), #FF8A50);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
     .hero p { color: var(--text-dim); font-size: 1rem; max-width: 480px; margin: 0 auto; }
 
-    /* ── CHAMP UNIVERSEL ──────────────────────────────────────────────── */
+    /* ── SCAN BOX ───────────────────────────────────────────────────── */
     .scan-box {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -168,27 +209,24 @@
       border-radius: var(--radius-sm);
       color: var(--text);
       font-family: var(--font-body);
-      font-size: 0.95rem;
-      line-height: 1.65;
+      font-size: 0.95rem; line-height: 1.65;
       padding: 1rem 1.1rem;
-      resize: vertical;
-      min-height: 130px;
+      resize: vertical; min-height: 130px;
       outline: none;
       transition: border-color var(--transition), background var(--transition);
     }
     .scan-textarea:focus { border-color: var(--orange); }
     .scan-textarea::placeholder { color: var(--text-muted); }
 
-    /* Zone fichier (drop + preview) */
+    /* Zone fichier */
     .file-area { margin-top: 0.85rem; }
 
     .file-drop-zone {
       border: 2px dashed var(--border);
       border-radius: var(--radius-sm);
-      padding: 1.1rem 1rem;
+      padding: 1rem;
       display: flex; align-items: center; gap: 0.75rem;
-      cursor: pointer;
-      background: var(--bg);
+      cursor: pointer; background: var(--bg);
       transition: border-color var(--transition), background var(--transition);
     }
     .file-drop-zone:hover,
@@ -197,25 +235,19 @@
       background: var(--orange-soft);
     }
     [data-theme="dark"] .file-drop-zone:hover,
-    [data-theme="dark"] .file-drop-zone.drag-over {
-      background: rgba(244,96,26,0.07);
-    }
-    .file-drop-icon { font-size: 1.35rem; flex-shrink: 0; }
+    [data-theme="dark"] .file-drop-zone.drag-over { background: var(--orange-dim); }
+    .file-drop-icon { font-size: 1.3rem; flex-shrink: 0; }
     .file-drop-info { flex: 1; }
     .file-drop-text { font-size: 0.82rem; color: var(--text-dim); font-weight: 500; }
-    .file-drop-hint { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem; }
+    .file-drop-hint { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.1rem; }
 
     .file-preview {
       display: none; align-items: center; gap: 0.65rem;
       background: var(--orange-soft);
-      border: 1px solid rgba(244,96,26,0.2);
-      border-radius: var(--radius-sm);
-      padding: 0.65rem 1rem;
+      border: 1px solid rgba(255,92,26,0.2);
+      border-radius: var(--radius-sm); padding: 0.65rem 1rem;
     }
-    [data-theme="dark"] .file-preview {
-      background: rgba(244,96,26,0.08);
-      border-color: rgba(244,96,26,0.25);
-    }
+    [data-theme="dark"] .file-preview { background: var(--orange-dim); border-color: rgba(255,92,26,0.25); }
     .file-preview.visible { display: flex; }
     .file-preview-icon { font-size: 1.15rem; flex-shrink: 0; }
     .file-preview-name {
@@ -230,7 +262,7 @@
     }
     .file-preview-remove:hover { color: var(--red); }
 
-    /* Barre d'action */
+    /* Action row */
     .scan-action-row {
       display: flex; align-items: center; justify-content: flex-end;
       gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap;
@@ -239,30 +271,24 @@
       flex: 1; font-size: 0.75rem; color: var(--text-muted);
       display: flex; align-items: center; gap: 0.4rem;
     }
-
     .btn-scan {
       background: var(--orange); color: #fff;
       font-family: var(--font-head); font-weight: 700; font-size: 0.9rem;
       padding: 0.7rem 2rem; border: none; border-radius: var(--radius-sm);
       cursor: pointer; letter-spacing: 0.01em;
-      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
       display: flex; align-items: center; gap: 0.5rem;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
     }
-    .btn-scan:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(244,96,26,0.35);
-    }
+    .btn-scan:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255,92,26,0.35); }
     .btn-scan:active { transform: translateY(0); }
     .btn-scan:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 
-    /* ── RÉSULTAT ─────────────────────────────────────────────────────── */
+    /* ── RÉSULTAT ───────────────────────────────────────────────────── */
     #result { display: none; animation: fade-up 0.4s ease both; margin-bottom: 2rem; }
 
     .result-card {
-      background: var(--surface);
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius-lg);
-      overflow: hidden; box-shadow: var(--shadow);
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow);
       transition: background var(--transition), border-color var(--transition);
     }
     .verdict-SCAM { border-top: 3px solid var(--red); }
@@ -280,7 +306,6 @@
     }
     .verdict-text p { font-size: 0.82rem; color: var(--text-dim); margin-top: 0.15rem; }
 
-    /* Badges dans le header résultat */
     .result-badges { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
     .result-badge {
       display: inline-flex; align-items: center; gap: 0.3rem;
@@ -288,22 +313,12 @@
       border-radius: 5px; background: var(--bg-alt); color: var(--text-dim);
       border: 1px solid var(--border);
     }
-    .result-badge.phone-warn {
-      background: var(--yellow-soft); color: var(--yellow);
-      border-color: rgba(217,119,6,0.3);
-    }
-    .result-badge.fake-news-warn {
-      background: var(--red-soft); color: var(--red);
-      border-color: rgba(220,38,38,0.3);
-    }
-    [data-theme="dark"] .result-badge.phone-warn { background: rgba(217,119,6,0.15); }
-    [data-theme="dark"] .result-badge.fake-news-warn { background: rgba(220,38,38,0.15); }
+    .result-badge.phone-warn  { background: var(--yellow-soft); color: var(--yellow); border-color: rgba(245,166,35,0.3); }
+    .result-badge.fake-news-warn { background: var(--red-soft); color: var(--red); border-color: rgba(226,75,74,0.3); }
+    [data-theme="dark"] .result-badge.phone-warn     { background: rgba(245,166,35,0.12); }
+    [data-theme="dark"] .result-badge.fake-news-warn { background: rgba(226,75,74,0.12); }
 
-    /* Méta */
-    .result-meta {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    }
+    .result-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
     .meta-item { padding: 1.25rem 1.75rem; border-right: 1px solid var(--border); }
     .meta-item:last-child { border-right: none; }
     .meta-label {
@@ -311,38 +326,27 @@
       letter-spacing: 0.08em; text-transform: uppercase;
       color: var(--text-muted); margin-bottom: 0.35rem;
     }
-    .meta-value {
-      font-family: var(--font-head); font-size: 1.4rem;
-      font-weight: 700; letter-spacing: -0.02em;
-    }
+    .meta-value { font-family: var(--font-head); font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
 
-    /* Barre de confiance */
     .conf-bar-wrap { background: var(--bg-alt); border-radius: 99px; height: 5px; overflow: hidden; margin-top: 0.4rem; }
     .conf-bar { height: 100%; border-radius: 99px; transition: width 0.8s cubic-bezier(0.16,1,0.3,1); }
 
-    /* Couleurs de risque */
     .risk-FAIBLE   { color: var(--green); }
     .risk-MOYEN    { color: var(--yellow); }
     .risk-ÉLEVÉ    { color: var(--orange); }
     .risk-CRITIQUE { color: var(--red); }
 
-    /* Explication */
     .result-explanation {
-      padding: 1.5rem 2rem;
-      border-top: 1px solid var(--border);
-      background: var(--surface-2);
+      padding: 1.5rem 2rem; border-top: 1px solid var(--border); background: var(--surface-2);
     }
     .result-explanation .label {
-      font-size: 0.68rem; font-weight: 600;
-      letter-spacing: 0.08em; text-transform: uppercase;
-      color: var(--text-muted); margin-bottom: 0.5rem;
+      font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;
     }
     .result-explanation p { font-size: 0.9rem; line-height: 1.7; }
 
-    /* Conseil d'action */
     .result-advice {
-      padding: 1rem 2rem;
-      border-top: 1px solid var(--border);
+      padding: 1rem 2rem; border-top: 1px solid var(--border);
       display: flex; align-items: flex-start; gap: 0.6rem;
       font-size: 0.85rem; line-height: 1.55;
     }
@@ -350,15 +354,13 @@
     .result-advice.high     { background: var(--orange-soft); }
     .result-advice.medium   { background: var(--yellow-soft); }
     .result-advice.safe     { background: var(--green-soft); }
-    [data-theme="dark"] .result-advice.critical { background: rgba(220,38,38,0.1); }
-    [data-theme="dark"] .result-advice.high     { background: rgba(244,96,26,0.1); }
-    [data-theme="dark"] .result-advice.medium   { background: rgba(217,119,6,0.1); }
-    [data-theme="dark"] .result-advice.safe     { background: rgba(22,163,74,0.1); }
+    [data-theme="dark"] .result-advice.critical { background: rgba(226,75,74,0.1); }
+    [data-theme="dark"] .result-advice.high     { background: rgba(255,92,26,0.1); }
+    [data-theme="dark"] .result-advice.medium   { background: rgba(245,166,35,0.1); }
+    [data-theme="dark"] .result-advice.safe     { background: rgba(29,184,126,0.1); }
 
-    /* Feedback */
     .result-feedback {
-      padding: 1rem 2rem;
-      border-top: 1px solid var(--border);
+      padding: 1rem 2rem; border-top: 1px solid var(--border);
       display: flex; align-items: center; gap: 0.75rem;
     }
     .feedback-label { font-size: 0.78rem; color: var(--text-muted); flex: 1; }
@@ -372,7 +374,7 @@
     .btn-feedback:hover { border-color: var(--orange); color: var(--orange); }
     .btn-feedback.sent  { opacity: 0.5; cursor: default; }
 
-    /* ── SECTION TITLE ────────────────────────────────────────────────── */
+    /* ── SECTION TITLE ──────────────────────────────────────────────── */
     .section-title {
       font-family: var(--font-head); font-size: 0.72rem; font-weight: 700;
       letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted);
@@ -381,16 +383,14 @@
     }
     .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
     .title-badge {
-      font-size: 0.65rem; font-weight: 700;
-      padding: 0.15rem 0.55rem; border-radius: 99px;
-      background: var(--red-soft); color: var(--red);
+      font-size: 0.65rem; font-weight: 700; padding: 0.15rem 0.55rem;
+      border-radius: 99px; background: var(--red-soft); color: var(--red);
     }
-    [data-theme="dark"] .title-badge { background: rgba(220,38,38,0.15); }
+    [data-theme="dark"] .title-badge { background: rgba(226,75,74,0.15); }
 
-    /* ── STATS ────────────────────────────────────────────────────────── */
+    /* ── STATS ──────────────────────────────────────────────────────── */
     .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 1rem; margin-bottom: 2.5rem;
       animation: fade-up 0.5s 0.15s ease both;
     }
@@ -400,13 +400,11 @@
       position: relative; overflow: hidden; box-shadow: var(--shadow);
       transition: border-color var(--transition), transform 0.15s, box-shadow 0.15s, background var(--transition);
     }
-    .stat-card:hover {
-      border-color: var(--border-strong);
-      transform: translateY(-2px); box-shadow: var(--shadow-lg);
-    }
+    .stat-card:hover { border-color: var(--border-strong); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
     .stat-num {
       font-family: var(--font-head); font-size: 2.4rem; font-weight: 800;
       line-height: 1; margin-bottom: 0.3rem; letter-spacing: -0.03em;
+      color: var(--orange);
     }
     .stat-label { font-size: 0.78rem; font-weight: 500; color: var(--text-dim); }
     .accent-line {
@@ -414,7 +412,7 @@
       height: 3px; border-radius: 0 0 var(--radius-md) var(--radius-md);
     }
 
-    /* ── MENACES ──────────────────────────────────────────────────────── */
+    /* ── MENACES ────────────────────────────────────────────────────── */
     .threats-section { margin-bottom: 2.5rem; animation: fade-up 0.5s 0.2s ease both; }
     .threats-empty {
       background: var(--surface); border: 1px solid var(--border);
@@ -425,10 +423,8 @@
 
     .threat-card {
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius-md); padding: 1rem 1.25rem;
-      margin-bottom: 0.6rem;
-      display: grid; grid-template-columns: auto 1fr auto;
-      gap: 1rem; align-items: center;
+      border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 0.6rem;
+      display: grid; grid-template-columns: auto 1fr auto; gap: 1rem; align-items: center;
       transition: border-color var(--transition), transform 0.15s, box-shadow 0.15s;
       position: relative; overflow: hidden;
     }
@@ -439,79 +435,55 @@
     .threat-card.risk-MOYEN::before    { background: var(--yellow); }
     .threat-card.risk-ÉLEVÉ::before    { background: var(--orange); }
     .threat-card.risk-CRITIQUE::before { background: var(--red); }
-    .threat-card:hover {
-      border-color: var(--border-strong);
-      transform: translateX(2px); box-shadow: var(--shadow);
-    }
+    .threat-card:hover { border-color: var(--border-strong); transform: translateX(2px); box-shadow: var(--shadow); }
 
     .threat-risk-badge {
-      font-size: 0.62rem; font-weight: 700;
-      letter-spacing: 0.08em; text-transform: uppercase;
-      padding: 0.28rem 0.6rem; border-radius: 6px; white-space: nowrap;
+      font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; padding: 0.28rem 0.6rem; border-radius: 6px; white-space: nowrap;
     }
     .risk-badge-MOYEN    { background: var(--yellow-soft); color: var(--yellow); }
     .risk-badge-ÉLEVÉ    { background: var(--orange-soft); color: var(--orange); }
     .risk-badge-CRITIQUE { background: var(--red-soft);    color: var(--red); }
-    [data-theme="dark"] .risk-badge-MOYEN    { background: rgba(217,119,6,0.15); }
-    [data-theme="dark"] .risk-badge-ÉLEVÉ    { background: rgba(244,96,26,0.15); }
-    [data-theme="dark"] .risk-badge-CRITIQUE { background: rgba(220,38,38,0.15); }
+    [data-theme="dark"] .risk-badge-MOYEN    { background: rgba(245,166,35,0.15); }
+    [data-theme="dark"] .risk-badge-ÉLEVÉ    { background: rgba(255,92,26,0.15); }
+    [data-theme="dark"] .risk-badge-CRITIQUE { background: rgba(226,75,74,0.15); }
 
-    .threat-excerpt {
-      font-size: 0.84rem; white-space: nowrap;
-      overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.2rem;
-    }
+    .threat-excerpt { font-size: 0.84rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.2rem; }
     .threat-meta-row { display: flex; align-items: center; gap: 0.6rem; }
     .threat-cat {
-      font-size: 0.65rem; font-weight: 600;
-      letter-spacing: 0.06em; text-transform: uppercase;
-      color: var(--text-muted); background: var(--bg-alt);
-      padding: 0.12rem 0.5rem; border-radius: 4px;
+      font-size: 0.65rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--text-muted); background: var(--bg-alt); padding: 0.12rem 0.5rem; border-radius: 4px;
     }
     .threat-date { font-size: 0.65rem; color: var(--text-muted); }
-    .threat-conf {
-      font-family: var(--font-head); font-size: 0.92rem;
-      font-weight: 700; color: var(--text-dim); text-align: right; white-space: nowrap;
-    }
-    .threat-conf span {
-      display: block; font-size: 0.6rem; font-weight: 500;
-      letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
-    }
+    .threat-conf { font-family: var(--font-head); font-size: 0.92rem; font-weight: 700; color: var(--text-dim); text-align: right; white-space: nowrap; }
+    .threat-conf span { display: block; font-size: 0.6rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
 
     .threats-more { display: none; animation: fade-up 0.3s ease both; }
     .threats-more.open { display: block; }
     .btn-show-more {
-      width: 100%; background: var(--surface);
-      border: 1px solid var(--border); border-radius: var(--radius-sm);
-      color: var(--text-dim); font-family: var(--font-body);
-      font-size: 0.82rem; font-weight: 500; padding: 0.7rem 1rem;
-      cursor: pointer; margin-top: 0.5rem;
+      width: 100%; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text-dim); font-family: var(--font-body);
+      font-size: 0.82rem; font-weight: 500; padding: 0.7rem 1rem; cursor: pointer; margin-top: 0.5rem;
       transition: border-color var(--transition), color var(--transition), background var(--transition);
       display: flex; align-items: center; justify-content: center; gap: 0.5rem;
     }
-    .btn-show-more:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-soft); }
-    [data-theme="dark"] .btn-show-more:hover { background: rgba(244,96,26,0.08); }
+    .btn-show-more:hover { border-color: var(--orange); color: var(--orange); }
     .btn-show-more .chevron { display: inline-block; transition: transform 0.25s; }
     .btn-show-more.open .chevron { transform: rotate(180deg); }
 
-    /* ── SIGNALEMENT ──────────────────────────────────────────────────── */
+    /* ── SIGNALEMENT ────────────────────────────────────────────────── */
     .report-section { margin-bottom: 3rem; animation: fade-up 0.5s 0.25s ease both; }
     .report-box {
       background: var(--surface); border: 1.5px solid var(--border);
       border-radius: var(--radius-lg); padding: 2rem; box-shadow: var(--shadow);
       transition: background var(--transition), border-color var(--transition);
     }
-    .report-box-header {
-      display: flex; align-items: flex-start; justify-content: space-between;
-      gap: 1rem; margin-bottom: 1.75rem; flex-wrap: wrap;
-    }
+    .report-box-header { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.75rem; flex-wrap: wrap; }
     .report-box-title {
       font-family: var(--font-head); font-weight: 700; font-size: 1.1rem;
       display: flex; align-items: center; gap: 0.5rem; letter-spacing: -0.01em;
     }
-    .report-box-sub {
-      font-size: 0.84rem; color: var(--text-dim);
-      margin-top: 0.3rem; line-height: 1.55; max-width: 520px;
-    }
+    .report-box-sub { font-size: 0.84rem; color: var(--text-dim); margin-top: 0.3rem; line-height: 1.55; max-width: 520px; }
 
     .report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     @media (max-width: 600px) { .report-grid { grid-template-columns: 1fr; } }
@@ -519,25 +491,18 @@
 
     .field label {
       display: block; font-size: 0.72rem; font-weight: 600;
-      letter-spacing: 0.06em; text-transform: uppercase;
-      color: var(--text-dim); margin-bottom: 0.4rem;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 0.4rem;
     }
     .field input, .field select, .field textarea {
-      width: 100%; background: var(--bg);
-      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
-      color: var(--text); font-family: var(--font-body);
+      width: 100%; background: var(--bg); border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text); font-family: var(--font-body);
       font-size: 0.88rem; padding: 0.65rem 0.9rem; outline: none;
       transition: border-color var(--transition), background var(--transition);
     }
-    .field input:focus, .field select:focus, .field textarea:focus {
-      border-color: var(--red);
-    }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--red); }
     .field textarea { resize: vertical; min-height: 90px; }
 
-    .report-submit-row {
-      display: flex; justify-content: flex-end;
-      margin-top: 1.25rem; gap: 0.75rem; align-items: center;
-    }
+    .report-submit-row { display: flex; justify-content: flex-end; margin-top: 1.25rem; gap: 0.75rem; align-items: center; }
     .report-hint { font-size: 0.72rem; color: var(--text-muted); flex: 1; }
     .btn-report-submit {
       background: var(--red); color: #fff;
@@ -547,21 +512,39 @@
       transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
       display: flex; align-items: center; gap: 0.4rem;
     }
-    .btn-report-submit:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(220,38,38,0.3);
-    }
+    .btn-report-submit:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(226,75,74,0.3); }
     .btn-report-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 
-    /* ── UTILITAIRES ──────────────────────────────────────────────────── */
+    /* ── FOOTER ─────────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1.75rem 2.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 1rem;
+    }
+    .footer-brand {
+      font-family: var(--font-head); font-weight: 800; font-size: 1.1rem;
+      color: var(--text); letter-spacing: -0.02em;
+    }
+    .footer-brand span { color: var(--orange); }
+
+    .footer-links { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+    .footer-links a {
+      font-size: 0.82rem; color: var(--text-muted); text-decoration: none;
+      transition: color var(--transition);
+    }
+    .footer-links a:hover { color: var(--orange); }
+
+    .footer-copy { font-size: 0.75rem; color: var(--text-muted); }
+
+    /* ── UTILITAIRES ────────────────────────────────────────────────── */
     .toast {
       position: fixed; bottom: 1.5rem; right: 1.5rem;
       background: var(--surface); border: 1px solid var(--border);
       border-radius: var(--radius-md); padding: 0.85rem 1.25rem;
       font-size: 0.84rem; font-weight: 500; z-index: 9999;
       transform: translateY(80px); opacity: 0; box-shadow: var(--shadow-lg);
-      transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), opacity 0.3s;
-      max-width: 320px;
+      transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), opacity 0.3s; max-width: 320px;
     }
     .toast.show { transform: translateY(0); opacity: 1; }
     .toast.success { border-left: 3px solid var(--green); }
@@ -570,8 +553,7 @@
     .spinner {
       display: inline-block; width: 14px; height: 14px;
       border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff;
-      border-radius: 50%; animation: spin 0.7s linear infinite;
-      vertical-align: middle;
+      border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle;
     }
     .spinner-white {
       display: inline-block; width: 13px; height: 13px;
@@ -584,17 +566,12 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    footer {
-      text-align: center; padding: 2rem;
-      color: var(--text-muted); font-size: 0.75rem;
-      border-top: 1px solid var(--border);
+    /* ── RESPONSIVE ─────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      nav { padding: 0.9rem 1.25rem; }
     }
-    footer a { color: var(--orange); text-decoration: none; font-weight: 500; }
-    footer a:hover { text-decoration: underline; }
-
-    /* ── RESPONSIVE ───────────────────────────────────────────────────── */
     @media (max-width: 640px) {
-      header { padding: 0.9rem 1.25rem; }
       main { padding: 2rem 1.25rem 3rem; }
       .hero h1 { font-size: 1.9rem; }
       .scan-action-row { flex-direction: column; align-items: stretch; }
@@ -603,46 +580,63 @@
       .meta-item { border-right: none; border-bottom: 1px solid var(--border); }
       .threat-card { grid-template-columns: auto 1fr; }
       .threat-conf { display: none; }
-      .status-pill { display: none; }
+      footer { flex-direction: column; align-items: flex-start; padding: 1.5rem 1.25rem; }
     }
   </style>
 </head>
 <body>
 
-<!-- ── HEADER ──────────────────────────────────────────────────────────── -->
-<header>
-  <div class="logo">
-    <div class="logo-flag"></div>
-    <span class="ci">CI</span><span>Alert</span>
+<!-- ── NAV ─────────────────────────────────────────────────────────────── -->
+<nav>
+  <a class="logo" href="#">
+    <svg class="logo-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M18 3L5 8.5V18.5C5 25.4 10.7 31.9 18 33.5C25.3 31.9 31 25.4 31 18.5V8.5L18 3Z" fill="#FF5C1A"/>
+      <path d="M18 3L5 8.5V18.5C5 25.4 10.7 31.9 18 33.5V3Z" fill="#FF8A50" opacity="0.4"/>
+      <path d="M12 18L16 22L24 14" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="18" cy="11" r="2.5" fill="white" opacity="0.9"/>
+    </svg>
+    <span class="logo-name"><span>CI</span>Alert</span>
+  </a>
+
+  <div class="nav-links">
+    <a href="#scan-box-anchor">Analyser</a>
+    <a href="#report-anchor">Signaler</a>
+    <a href="#stats-anchor">Statistiques</a>
+    <a href="https://t.me/my_cialert_bot" target="_blank">Telegram</a>
   </div>
-  <div class="header-right">
-    <div class="status-pill">Connecté</div>
+
+  <div class="nav-right">
+    <div class="status-pill">En ligne</div>
+    <a class="btn-api" href="/docs" target="_blank">API</a>
     <label class="theme-toggle" title="Changer de thème">
       <input type="checkbox" id="themeToggle" onchange="toggleTheme(this)" />
       <div class="theme-track"><span>☀️</span><span>🌙</span></div>
       <div class="theme-thumb"><span id="themeIcon">☀️</span></div>
     </label>
   </div>
-</header>
+</nav>
 
-<!-- ── MAIN ────────────────────────────────────────────────────────────── -->
+<!-- ── MAIN ─────────────────────────────────────────────────────────────── -->
 <main>
 
   <!-- Hero -->
   <div class="hero">
-    <h1>Protège-toi des<br><em>arnaques digitales</em></h1>
-    <p>Colle un message, un lien ou un numéro suspect — ou dépose une capture d'écran. CIAlert analyse tout automatiquement.</p>
+    <div class="hero-badge">
+      <div class="badge-dot"></div>
+      Primé au SIADE 2026 · Abidjan
+    </div>
+    <h1>Détectez les arnaques<br><em>avant qu'elles vous atteignent</em></h1>
+    <p>Collez un SMS, une URL, un numéro ou un texte suspect. CIAlert analyse en quelques secondes.</p>
   </div>
 
   <!-- Champ universel -->
-  <div class="scan-box">
+  <div class="scan-box" id="scan-box-anchor">
     <textarea
       id="scanInput"
       class="scan-textarea"
-      placeholder="Colle ici un SMS, un message WhatsApp, une URL, un numéro de téléphone...&#10;&#10;Ex : « Félicitations ! Vous avez gagné 500 000 FCFA. Envoyez 5 000 F sur Orange Money au +225 07... »"
+      placeholder="Collez ici un message, un lien, un numéro de téléphone ou un texte suspect...&#10;&#10;Ex : « Félicitations ! Vous avez gagné 500 000 FCFA. Envoyez 5 000 F sur Orange Money au +225 07... »"
     ></textarea>
 
-    <!-- Zone de dépôt de fichier -->
     <div class="file-area">
       <div class="file-drop-zone" id="dropZone"
            ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)"
@@ -677,7 +671,6 @@
   <!-- Résultat -->
   <div id="result">
     <div class="result-card" id="resultCard">
-
       <div class="result-header">
         <div class="verdict-icon" id="verdictIcon">🔍</div>
         <div class="verdict-text">
@@ -686,7 +679,6 @@
           <div class="result-badges" id="resultBadges"></div>
         </div>
       </div>
-
       <div class="result-meta">
         <div class="meta-item">
           <div class="meta-label">Confiance</div>
@@ -706,28 +698,24 @@
           <div class="meta-value" id="metaMs">—</div>
         </div>
       </div>
-
       <div class="result-explanation">
         <div class="label">Ce que nous avons détecté</div>
         <p id="explanationText">—</p>
       </div>
-
       <div class="result-advice" id="resultAdvice">
         <span id="adviceIcon">💡</span>
         <span id="adviceText">—</span>
       </div>
-
       <div class="result-feedback">
         <span class="feedback-label">Ce résultat est-il correct ?</span>
         <button class="btn-feedback" id="btnFeedbackYes" onclick="sendFeedback(true)">✅ Oui</button>
         <button class="btn-feedback" id="btnFeedbackNo"  onclick="sendFeedback(false)">❌ Non</button>
       </div>
-
     </div>
   </div>
 
   <!-- Stats -->
-  <div class="section-title">Statistiques globales</div>
+  <div class="section-title" id="stats-anchor">Statistiques globales</div>
   <div class="stats-grid">
     <div class="stat-card">
       <div class="stat-num" id="statTotal">—</div>
@@ -751,7 +739,7 @@
     </div>
   </div>
 
-  <!-- Menaces détectées -->
+  <!-- Menaces -->
   <div class="threats-section">
     <div class="section-title">
       Menaces détectées
@@ -766,7 +754,7 @@
   </div>
 
   <!-- Signalement -->
-  <div class="report-section">
+  <div class="report-section" id="report-anchor">
     <div class="section-title">Signaler une arnaque</div>
     <div class="report-box">
       <div class="report-box-header">
@@ -794,8 +782,7 @@
         </div>
         <div class="field field-full">
           <label>Contenu du message ou lien reçu</label>
-          <textarea id="reportContent" rows="3"
-            placeholder="Collez ici le message reçu..."></textarea>
+          <textarea id="reportContent" rows="3" placeholder="Collez ici le message reçu..."></textarea>
         </div>
         <div class="field field-full">
           <label>Contexte (optionnel)</label>
@@ -813,18 +800,26 @@
 
 </main>
 
+<!-- ── FOOTER ───────────────────────────────────────────────────────────── -->
 <footer>
-  CIAlert V2.0 · Côte d'Ivoire 🇨🇮 ·
-  <a href="/docs" target="_blank">API</a>
+  <div class="footer-brand"><span>CI</span>Alert</div>
+  <div class="footer-links">
+    <a href="https://github.com/justinouanko/cialert" target="_blank">GitHub</a>
+    <a href="https://t.me/my_cialert_bot" target="_blank">Telegram</a>
+    <a href="/docs" target="_blank">API</a>
+    <a href="https://github.com/justinouanko/cialert/main/README.md" target="_blank">Contribuer</a>
+  </div>
+  <div class="footer-copy">Open-source · Abidjan, Côte d'Ivoire 🇨🇮</div>
 </footer>
+
 <div class="toast" id="toast"></div>
 
 <script>
   const API = '';
-  let selectedFile = null;
+  let selectedFile  = null;
   let currentScanId = null;
 
-  // ── THÈME ────────────────────────────────────────────────────────────
+  // ── THÈME ──────────────────────────────────────────────────────────
   function toggleTheme(cb) {
     const dark = cb.checked;
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
@@ -843,12 +838,10 @@
     }
   })();
 
-  // ── FICHIER ──────────────────────────────────────────────────────────
+  // ── FICHIER ────────────────────────────────────────────────────────
   const FILE_ICONS = { pdf: '📕', png: '🖼️', jpg: '🖼️', jpeg: '🖼️', webp: '🖼️', txt: '📄', eml: '✉️' };
 
-  function triggerFileInput() {
-    document.getElementById('fileInput').click();
-  }
+  function triggerFileInput() { document.getElementById('fileInput').click(); }
   function onFileSelected(file) {
     if (!file) return;
     selectedFile = file;
@@ -876,7 +869,7 @@
     if (f) onFileSelected(f);
   }
 
-  // ── UTILITAIRES ──────────────────────────────────────────────────────
+  // ── UTILITAIRES ────────────────────────────────────────────────────
   function showToast(msg, type = 'success') {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -884,38 +877,27 @@
     setTimeout(() => t.classList.remove('show'), 3500);
   }
   function escapeHTML(s) {
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
   function formatDate(iso) {
-    return new Date(iso).toLocaleDateString('fr-FR', {
-      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-    });
+    return new Date(iso).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
   }
   function formatCategory(c) {
-    const labels = {
-      broutage: 'Broutage', mobile_money: 'Mobile Money',
-      phishing: 'Phishing', faux_emploi: 'Faux emploi',
-      sms_frauduleux: 'SMS frauduleux', faux_site: 'Faux site',
-      arnaque: 'Arnaque', crypto_invest: 'Crypto', arnaque_admin: 'Admin',
-      gain_improbable: 'Faux gain', autre: 'Autre',
-    };
-    return labels[c] || c || '—';
+    const l = { broutage:'Broutage', mobile_money:'Mobile Money', phishing:'Phishing',
+                faux_emploi:'Faux emploi', sms_frauduleux:'SMS frauduleux', faux_site:'Faux site',
+                arnaque:'Arnaque', crypto_invest:'Crypto', arnaque_admin:'Admin',
+                gain_improbable:'Faux gain', autre:'Autre' };
+    return l[c] || c || '—';
   }
 
-  // ── ANALYSE (POST /scan) ─────────────────────────────────────────────
+  // ── SCAN ───────────────────────────────────────────────────────────
   async function runScan() {
     const text = document.getElementById('scanInput').value.trim();
-    if (!text && !selectedFile) {
-      showToast('Colle un texte ou joindre un fichier.', 'error');
-      return;
-    }
+    if (!text && !selectedFile) { showToast('Collez un texte ou joignez un fichier.', 'error'); return; }
 
     const btn = document.getElementById('btnScan');
-    btn.disabled    = true;
-    btn.innerHTML   = '<span class="spinner"></span> Analyse en cours...';
+    btn.disabled  = true;
+    btn.innerHTML = '<span class="spinner"></span> Analyse en cours...';
 
     try {
       const form = new FormData();
@@ -923,57 +905,47 @@
       if (selectedFile) form.append('file', selectedFile);
 
       const res = await fetch(`${API}/scan`, { method: 'POST', body: form });
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || `Erreur ${res.status}`);
       }
-
       const data = await res.json();
       displayResult(data);
       loadStats();
       loadThreats();
-
     } catch (e) {
       showToast(e.message || 'Erreur lors de l\u2019analyse.', 'error');
     } finally {
       btn.disabled  = false;
-      btn.innerHTML = 'Analyser →';
+      btn.innerHTML = 'Analyser \u2192';
     }
   }
 
-  // ── AFFICHAGE DU RÉSULTAT ────────────────────────────────────────────
+  // ── RÉSULTAT ───────────────────────────────────────────────────────
   function displayResult(d) {
     currentScanId = d.scan_id || null;
+    const isScam  = d.is_scam;
 
-    const isScam = d.is_scam;
-    document.getElementById('resultCard').className =
-      `result-card ${isScam ? 'verdict-SCAM' : 'verdict-SAFE'}`;
-
+    document.getElementById('resultCard').className = `result-card ${isScam ? 'verdict-SCAM' : 'verdict-SAFE'}`;
     document.getElementById('verdictIcon').textContent  = isScam ? '🚨' : '✅';
     document.getElementById('verdictTitle').textContent = isScam ? 'Arnaque probable' : 'Contenu sain';
     document.getElementById('verdictSub').textContent   = isScam
       ? `Niveau ${d.risk_level} — Ne donnez pas suite.`
-      : 'Aucun signal d\u2019arnaque détecté.';
+      : 'Aucun signal d\u2019arnaque d\u00e9tect\u00e9.';
 
-    // Badges supplémentaires
     const badges = document.getElementById('resultBadges');
     badges.innerHTML = '';
-    if (d.phone_warning) {
+    if (d.phone_warning)
       badges.innerHTML += `<span class="result-badge phone-warn">⚠️ ${escapeHTML(d.phone_warning)}</span>`;
-    }
-    if (d.fake_news && d.fake_news.verdict !== 'FIABLE') {
+    if (d.fake_news && d.fake_news.verdict !== 'FIABLE')
       badges.innerHTML += `<span class="result-badge fake-news-warn">🔍 ${escapeHTML(d.fake_news.message || 'Contenu suspect')}</span>`;
-    }
-    if (d.file_info) {
+    if (d.file_info)
       badges.innerHTML += `<span class="result-badge">📄 ${escapeHTML(d.file_info.filename)}</span>`;
-    }
 
-    // Méta
     const pct = Math.round((d.confidence || 0) * 100);
     document.getElementById('metaConf').textContent = `${pct}%`;
     const bar = document.getElementById('confBar');
-    bar.style.width      = '0%';
+    bar.style.width = '0%';
     bar.style.background = isScam ? 'var(--red)' : 'var(--green)';
     setTimeout(() => { bar.style.width = `${pct}%`; }, 50);
 
@@ -983,48 +955,36 @@
 
     document.getElementById('metaCat').textContent = formatCategory(d.scam_category);
     document.getElementById('metaMs').textContent  = `${d.processing_ms || 0} ms`;
+    document.getElementById('explanationText').textContent = d.explanation || d.message || '—';
 
-    // Explication
-    document.getElementById('explanationText').textContent =
-      d.explanation || d.message || 'Aucune information supplémentaire.';
-
-    // Conseil
-    const advice     = document.getElementById('resultAdvice');
-    const adviceText = document.getElementById('adviceText');
-    const adviceIcon = document.getElementById('adviceIcon');
-    adviceText.textContent = d.advice || '';
-    const riskClass = { CRITIQUE: 'critical', 'ÉLEVÉ': 'high', MOYEN: 'medium', FAIBLE: 'safe' };
+    const advice = document.getElementById('resultAdvice');
+    document.getElementById('adviceText').textContent = d.advice || '';
+    const riskClass = { CRITIQUE:'critical', '\u00c9LEV\u00c9':'high', MOYEN:'medium', FAIBLE:'safe' };
     advice.className = `result-advice ${riskClass[d.risk_level] || 'safe'}`;
-    adviceIcon.textContent = { CRITIQUE: '🚫', 'ÉLEVÉ': '⚠️', MOYEN: '👀', FAIBLE: '✅' }[d.risk_level] || '💡';
+    document.getElementById('adviceIcon').textContent =
+      { CRITIQUE:'🚫', '\u00c9LEV\u00c9':'⚠️', MOYEN:'👀', FAIBLE:'✅' }[d.risk_level] || '💡';
 
-    // Feedback — réinitialisation
     document.getElementById('btnFeedbackYes').classList.remove('sent');
     document.getElementById('btnFeedbackNo').classList.remove('sent');
-
     document.getElementById('result').style.display = 'block';
-    document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    document.getElementById('result').scrollIntoView({ behavior:'smooth', block:'nearest' });
   }
 
-  // ── FEEDBACK ─────────────────────────────────────────────────────────
+  // ── FEEDBACK ───────────────────────────────────────────────────────
   async function sendFeedback(correct) {
     if (!currentScanId) return;
-    const btnYes = document.getElementById('btnFeedbackYes');
-    const btnNo  = document.getElementById('btnFeedbackNo');
-    btnYes.classList.add('sent');
-    btnNo.classList.add('sent');
+    document.getElementById('btnFeedbackYes').classList.add('sent');
+    document.getElementById('btnFeedbackNo').classList.add('sent');
     try {
       await fetch(`${API}/feedback`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scan_id: currentScanId, correct })
       });
       showToast('Merci pour votre retour.', 'success');
-    } catch {
-      showToast('Retour non enregistré.', 'error');
-    }
+    } catch { showToast('Retour non enregistr\u00e9.', 'error'); }
   }
 
-  // ── STATS ─────────────────────────────────────────────────────────────
+  // ── STATS ──────────────────────────────────────────────────────────
   async function loadStats() {
     try {
       const d = await fetch(`${API}/stats`).then(r => r.json());
@@ -1035,26 +995,25 @@
     } catch {}
   }
 
-  // ── MENACES ───────────────────────────────────────────────────────────
-  const RISK_ORDER   = { CRITIQUE: 0, 'ÉLEVÉ': 1, MOYEN: 2 };
-  const RISK_VISIBLE = ['MOYEN', 'ÉLEVÉ', 'CRITIQUE'];
+  // ── MENACES ────────────────────────────────────────────────────────
+  const RISK_ORDER   = { CRITIQUE: 0, '\u00c9LEV\u00c9': 1, MOYEN: 2 };
+  const RISK_VISIBLE = ['MOYEN', '\u00c9LEV\u00c9', 'CRITIQUE'];
 
   function buildThreatCard(r) {
     const excerpt = escapeHTML((r.input_text || '').substring(0, 100));
     const pct     = r.confidence != null ? Math.round(r.confidence * 100) + '%' : '—';
     const rk      = r.risk_level || 'MOYEN';
-    return `
-      <div class="threat-card risk-${rk}">
-        <span class="threat-risk-badge risk-badge-${rk}">${rk}</span>
-        <div>
-          <div class="threat-excerpt">${excerpt || '<span style="color:var(--text-muted)">—</span>'}</div>
-          <div class="threat-meta-row">
-            ${r.scam_category ? `<span class="threat-cat">${formatCategory(r.scam_category)}</span>` : ''}
-            <span class="threat-date">${formatDate(r.created_at)}</span>
-          </div>
+    return `<div class="threat-card risk-${rk}">
+      <span class="threat-risk-badge risk-badge-${rk}">${rk}</span>
+      <div>
+        <div class="threat-excerpt">${excerpt || '<span style="color:var(--text-muted)">—</span>'}</div>
+        <div class="threat-meta-row">
+          ${r.scam_category ? `<span class="threat-cat">${formatCategory(r.scam_category)}</span>` : ''}
+          <span class="threat-date">${formatDate(r.created_at)}</span>
         </div>
-        <div class="threat-conf">${pct}<span>confiance</span></div>
-      </div>`;
+      </div>
+      <div class="threat-conf">${pct}<span>confiance</span></div>
+    </div>`;
   }
 
   async function loadThreats() {
@@ -1068,11 +1027,7 @@
       const container = document.getElementById('threatsList');
 
       if (!threats.length) {
-        container.innerHTML = `
-          <div class="threats-empty">
-            <div class="empty-icon">🛡️</div>
-            <div>Aucune menace active pour l\u2019instant</div>
-          </div>`;
+        container.innerHTML = `<div class="threats-empty"><div class="empty-icon">🛡️</div><div>Aucune menace active pour l\u2019instant</div></div>`;
         return;
       }
 
@@ -1081,10 +1036,7 @@
       let html   = top.map(buildThreatCard).join('');
 
       if (rest.length) {
-        html += `
-          <div class="threats-more" id="threatsMore">
-            ${rest.map(buildThreatCard).join('')}
-          </div>
+        html += `<div class="threats-more" id="threatsMore">${rest.map(buildThreatCard).join('')}</div>
           <button class="btn-show-more" id="btnShowMore" onclick="toggleMoreThreats()">
             <span class="chevron">▾</span>
             Voir ${rest.length} autre${rest.length > 1 ? 's' : ''} menace${rest.length > 1 ? 's' : ''}
@@ -1100,18 +1052,13 @@
     const open = more.classList.toggle('open');
     btn.classList.toggle('open', open);
     const n = more.querySelectorAll('.threat-card').length;
-    btn.innerHTML = `
-      <span class="chevron">▾</span>
-      ${open ? 'Réduire' : `Voir ${n} autre${n > 1 ? 's' : ''} menace${n > 1 ? 's' : ''}`}`;
+    btn.innerHTML = `<span class="chevron">▾</span> ${open ? 'R\u00e9duire' : `Voir ${n} autre${n>1?'s':''} menace${n>1?'s':''}`}`;
   }
 
-  // ── SIGNALEMENT ───────────────────────────────────────────────────────
+  // ── SIGNALEMENT ────────────────────────────────────────────────────
   async function submitReport() {
     const content = document.getElementById('reportContent').value.trim();
-    if (!content) {
-      showToast('Collez le contenu du message à signaler.', 'error');
-      return;
-    }
+    if (!content) { showToast('Collez le contenu du message \u00e0 signaler.', 'error'); return; }
 
     const btn    = document.getElementById('btnReportSubmit');
     btn.disabled = true;
@@ -1119,39 +1066,28 @@
 
     try {
       const res = await fetch(`${API}/report`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          content:         content,
+          content,
           victim_platform: document.getElementById('reportPlatform').value || null,
           victim_amount:   parseFloat(document.getElementById('reportAmount').value) || null,
           description:     document.getElementById('reportDesc').value || null,
         })
       });
       if (!res.ok) throw new Error();
-
-      ['reportContent', 'reportAmount', 'reportDesc'].forEach(id => {
-        document.getElementById(id).value = '';
-      });
+      ['reportContent','reportAmount','reportDesc'].forEach(id => { document.getElementById(id).value = ''; });
       document.getElementById('reportPlatform').value = '';
-
-      showToast('Signalement envoyé. Merci pour la communauté.', 'success');
-      loadStats();
-      loadThreats();
-    } catch {
-      showToast('Erreur lors du signalement.', 'error');
-    } finally {
+      showToast('Signalement envoy\u00e9. Merci pour la communaut\u00e9.', 'success');
+      loadStats(); loadThreats();
+    } catch { showToast('Erreur lors du signalement.', 'error'); }
+    finally {
       btn.disabled  = false;
-      btn.innerHTML = 'Envoyer →';
+      btn.innerHTML = 'Envoyer \u2192';
     }
   }
 
-  // ── RACCOURCI CLAVIER ─────────────────────────────────────────────────
-  document.addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runScan();
-  });
-
-  // ── INIT ──────────────────────────────────────────────────────────────
+  // ── INIT ───────────────────────────────────────────────────────────
+  document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runScan(); });
   loadStats();
   loadThreats();
 </script>
