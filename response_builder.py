@@ -107,7 +107,6 @@ def build_response(scan_result: dict, scan_id: Optional[int] = None) -> dict:
     - Les données brutes de l'IA
     """
     is_scam = scan_result.get("is_scam", False)
-    confidence = scan_result.get("confidence", 0.0)
     risk_level = scan_result.get("risk_level", "FAIBLE")
     scam_category = scan_result.get("scam_category")
     has_fake_news = scan_result.get("has_fake_news", False)
@@ -148,9 +147,7 @@ def build_response(scan_result: dict, scan_id: Optional[int] = None) -> dict:
     response = {
         "scan_id":       scan_id,
         "is_scam":       is_scam,
-        "confidence":    confidence,
         "risk_level":    risk_level,
-        "scam_category": scam_category,
         "message":       main_message,
         "explanation":   explanation,
         "advice":        advice,
