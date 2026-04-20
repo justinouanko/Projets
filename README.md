@@ -1,68 +1,51 @@
-# CIAlert
+# 🛡️ CIAlert — Détecteur d'arnaques digitales 🇨🇮
 
-**Plateforme de détection d'arnaques digitales pour la Côte d'Ivoire**
+> Plateforme open-source de détection d'arnaques et de désinformation,  
+> conçue pour le contexte ivoirien et ouest-africain.
 
-CIAlert analyse messages, liens, numéros de téléphone et fichiers pour détecter les arnaques courantes en Côte d'Ivoire : fraude Mobile Money, broutage, phishing, faux emplois, fake news et bien d'autres.
-
-Il suffit de coller un message ou déposer un fichier. CIAlert fait le reste.
-
-> Projet récompensé au hackathon étudiant **SIADE 2026** 🇨🇮
-
----
-
-## Démo
-
-[cialert.up.railway.app](https://cialert.up.railway.app)
+[![Version](https://img.shields.io/badge/version-2.0.0-orange)](https://github.com/justinouanko/cialert)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Railway](https://img.shields.io/badge/deployed-Railway-blueviolet)](https://cialert.up.railway.app)
 
 ---
 
-## Fonctionnalités
+## Pourquoi CIAlert ?
 
-- **Détection automatique** — pas besoin de préciser le type de contenu
-- **Analyse de fichiers** — PDF, images (PNG, JPG, WEBP), fichiers texte
-- **Répertoire de numéros signalés** — consulté silencieusement à chaque analyse
-- **Détection de fake news** — signaux de manipulation rhétorique et contextuelle
-- **Signalement communautaire** — chaque signalement enrichit la base de données
-- **Bot Telegram** — accès rapide depuis l'application de messagerie
-- **IA swappable** — Groq (défaut), Gemini ou Claude via variable d'environnement
+En Côte d'Ivoire, les arnaques digitales — broutage, faux Mobile Money, phishing, faux emplois — touchent des milliers de personnes chaque jour. CIAlert analyse en quelques secondes n'importe quel message, lien, numéro ou fichier suspect et retourne un verdict clair, en français, adapté au contexte local.
 
 ---
 
-## Arnaques détectées
+## Fonctionnalités V2.0.0
 
-| Catégorie | Exemples |
-|-----------|----------|
-| Fraude Mobile Money | Faux gains MTN, Orange, Wave |
-| Broutage | Arnaque romantique, escroquerie à distance |
-| Phishing | Faux sites bancaires, faux portails |
-| Faux emploi | Offres trop belles, avance de frais |
-| Loterie fictive | "Vous avez gagné un iPhone..." |
-| Arnaque crypto | Faux investissements, doublement de mise |
-| Fake news | Désinformation, manipulation de l'opinion |
-| SMS frauduleux | Messages d'urgence, usurpation d'identité |
-| Faux support technique | Virus fictifs, accès à distance |
+| Fonctionnalité | Description |
+|---|---|
+| 🔍 Détection multi-niveaux | Règles locales → Threat Intel → IA |
+| 📰 Détection fake news | Analyse rhétorique et contextuelle |
+| 📎 Analyse de fichiers | PDF, image (OCR), TXT jusqu'à 10 Mo |
+| 📞 Répertoire de numéros | Alerte si numéro déjà signalé |
+| 🤖 Bot Telegram | Analyse texte, photo, document |
+| 🔄 Feedback utilisateur | Boucle d'amélioration continue |
+| 🌙 Dark mode | Interface claire/sombre persistée |
+| 🔌 IA swappable | Groq / Gemini / Claude via `.env` |
 
 ---
 
 ## Architecture
 
 ```
-Utilisateur
-    │
-    ▼
-Interface web (HTML/CSS/JS)
-    │
-    ▼
-API FastAPI  ──────────────────────────────────────────┐
-    │                                                  │
-    ├── router.py         Détection du type d'input    │
-    ├── agent.py          Moteur de détection (règles + IA)
-    ├── file_extractor.py Extraction texte depuis fichiers
-    ├── phone_registry.py Répertoire numéros signalés  │
-    ├── response_builder.py Mise en forme des résultats│
-    └── database.py       Couche données               │
-                                                       │
-PostgreSQL ─────────────────────────────────────────────┘
+cialert/
+├── main.py              # API FastAPI — endpoints /scan /report /feedback /stats /history
+├── router.py            # Orchestration des analyses en parallèle
+├── agent.py             # Détection arnaque (règles + threat intel + IA)
+├── fake_news_agent.py   # Détection désinformation
+├── ai_provider.py       # Couche IA swappable (Groq / Gemini / Claude)
+├── file_extractor.py    # Extraction texte (PDF, image OCR, TXT)
+├── phone_registry.py    # Répertoire numéros suspects
+├── response_builder.py  # Construction réponse frontend
+├── database.py          # PostgreSQL / SQLite auto-détecté
+├── bot.py               # Bot Telegram V2.0
+└── static/
+    └── index.html       # Frontend
 ```
 
 ---
@@ -71,100 +54,178 @@ PostgreSQL ───────────────────────
 
 ### Prérequis
 
-- Python 3.12+
-- PostgreSQL
-- Docker (recommandé pour Tesseract OCR)
-- Un compte [Groq](https://console.groq.com) pour la clé API IA
+- Python 3.11+
+- PostgreSQL (production) ou SQLite (développement local)
+- Clé API Groq (gratuite) — ou Gemini / Claude
+
+### Cloner et installer
+
+```bash
+git clone https://github.com/justinouanko/cialert.git
+cd cialert
+pip install -r requirements.txt
+```
 
 ### Variables d'environnement
 
-Créez un fichier `.env` à la racine en vous basant sur `.env.example` :
+Crée un fichier `.env` à la racine :
 
 ```env
-DATABASE_URL=postgresql://user:password@host:port/dbname
-AI_PROVIDER=groq
-GROQ_API_KEY=your_groq_api_key
-GEMINI_API_KEY=your_gemini_api_key        # optionnel
-ANTHROPIC_API_KEY=your_anthropic_api_key  # optionnel
-VIRUSTOTAL_API_KEY=your_virustotal_api_key # optionnel
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+# IA — choisir un provider
+AI_PROVIDER=groq          # groq | gemini | claude
+GROQ_API_KEY=gsk_...
+GROQ_MODEL=llama-3.1-8b-instant
+
+# GEMINI (optionnel)
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-1.5-flash
+
+# CLAUDE (optionnel)
+CLAUDE_API_KEY=sk-ant-...
+CLAUDE_MODEL=claude-haiku-4-5-20251001
+
+# Base de données
+DATABASE_URL=postgresql://user:password@host:5432/cialert
+# Laisser vide pour SQLite local
+
+# Threat Intelligence (optionnel)
+VIRUSTOTAL_API_KEY=...
+GOOGLE_SAFE_BROWSING_KEY=...
+
+# Bot Telegram (optionnel)
+TELEGRAM_BOT_TOKEN=...
+API_URL=https://cialert.up.railway.app
 ```
 
-> Ne committez jamais votre fichier `.env`. Il est déjà dans `.gitignore`.
-
-### Lancement avec Docker (recommandé)
+### Lancer en local
 
 ```bash
-git clone https://github.com/justinouanko/cialert.git
-cd cialert
-cp .env.example .env
-# Remplissez les valeurs dans .env
-docker build -t cialert .
-docker run -p 8080:8080 --env-file .env cialert
+# API
+uvicorn main:app --reload --port 8000
+
+# Bot Telegram (dans un autre terminal)
+python bot.py
 ```
 
-### Lancement sans Docker
+L'interface est accessible sur `http://localhost:8000`.
 
-> Sans Docker, l'analyse d'images (OCR) ne sera pas disponible.
+---
+
+## Endpoints API
+
+| Méthode | Endpoint | Description |
+|---|---|---|
+| `POST` | `/scan` | Analyse universelle (texte, fichier, ou les deux) |
+| `POST` | `/report` | Signalement manuel d'une arnaque |
+| `POST` | `/feedback` | Retour utilisateur sur un résultat |
+| `GET` | `/stats` | Statistiques globales |
+| `GET` | `/history` | Historique des analyses |
+| `GET` | `/health` | Santé de l'API |
+
+### Exemple `/scan`
 
 ```bash
-git clone https://github.com/justinouanko/cialert.git
-cd cialert
-cp .env.example .env
-# Remplissez les valeurs dans .env
-pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8080
+# Texte
+curl -X POST https://cialert.up.railway.app/scan \
+  -F "content=Félicitations ! Vous avez gagné 500 000 FCFA. Envoyez 5 000 F sur Orange Money."
+
+# Fichier
+curl -X POST https://cialert.up.railway.app/scan \
+  -F "file=@capture.jpg"
+
+# Texte + Fichier
+curl -X POST https://cialert.up.railway.app/scan \
+  -F "content=Voir le document ci-joint" \
+  -F "file=@arnaque.pdf"
+```
+
+### Réponse type
+
+```json
+{
+  "scan_id": 42,
+  "is_scam": true,
+  "confidence": 0.94,
+  "confidence_label": "Probabilité d'arnaque",
+  "risk_level": "CRITIQUE",
+  "scam_category": "mobile_money",
+  "message": "Ce message implique un transfert Mobile Money suspect.",
+  "explanation": "Le message demande un envoi d'argent sous prétexte de débloquer un gain.",
+  "advice": "Ne répondez pas, ne cliquez sur aucun lien et ne transférez aucun argent.",
+  "processing_ms": 412
+}
 ```
 
 ---
 
-## Déploiement
+## Catégories détectées
 
-CIAlert est conçu pour être déployé sur [Railway](https://railway.app).
+| Catégorie | Description |
+|---|---|
+| `broutage` | Arnaque sentimentale, faux soldats ONU, sextorsion, pig butchering |
+| `mobile_money` | Faux agents MTN/Orange/Wave, codes USSD piégés, SIM swap |
+| `phishing` | Faux sites opérateurs, liens suspects, vol de credentials |
+| `gain_improbable` | Fausse loterie, faux remboursement, faux bonus |
+| `demande_paiement` | Frais de dossier, avance sur commission, frais de douane |
+| `faux_emploi` | Recrutement urgent sans expérience, télétravail frauduleux |
+| `crypto_invest` | Plateformes d'investissement garanties, doublement de mise |
+| `arnaque_admin` | Faux visa, fausse bourse d'études, faux agents consulaires |
+| `urgence` | Pression temporelle artificielle |
 
-1. Forkez le dépôt
-2. Créez un projet Railway
-3. Ajoutez un service PostgreSQL
-4. Configurez les variables d'environnement
-5. Railway détecte le `Dockerfile` et déploie automatiquement
+---
+
+## Bot Telegram
+
+Le bot analyse tout type de contenu directement depuis Telegram.
+
+**Commandes disponibles :**
+- Envoyer un texte → analyse immédiate
+- Envoyer une photo → OCR + analyse
+- Envoyer un PDF/TXT → extraction + analyse
+- `/signaler` → flux guidé de signalement
+- `/stats` → statistiques globales
+- `/aide` → guide d'utilisation
+
+👉 [@my_cialert_bot](https://t.me/my_cialert_bot)
+
+---
+
+## Déploiement Railway
+
+1. Forker le repo et connecter à Railway
+2. Ajouter les variables d'environnement dans Railway → Variables
+3. Railway détecte automatiquement FastAPI via `uvicorn`
+4. Ajouter un service PostgreSQL Railway et copier `DATABASE_URL`
+
+```bash
+# Procfile (si nécessaire)
+web: uvicorn main:app --host 0.0.0.0 --port $PORT
+```
 
 ---
 
 ## Contribuer
 
-Les contributions sont les bienvenues, en particulier :
+Les contributions sont les bienvenues — en particulier :
 
 - Nouveaux patterns d'arnaques ivoiriennes
-- Amélioration de la détection de numéros locaux
-- Traductions (dioula, bété, autres langues locales)
-- Corrections de bugs
+- Amélioration du prompt IA
+- Traduction en langues locales (dioula, baoulé...)
+- Intégration WhatsApp Business API
 
-**Avant de soumettre une PR :**
-- Le code est en anglais, les commentaires en français
-- Une fonction = un seul rôle
-- Pas de données sensibles dans le code
-
----
-
-## Stack technique
-
-| Couche | Technologie |
-|--------|-------------|
-| Backend | FastAPI (Python 3.12) |
-| Base de données | PostgreSQL |
-| IA | Groq — Llama 3.1 8B |
-| OCR | Tesseract + pdfplumber |
-| Bot | python-telegram-bot |
-| Déploiement | Railway |
+```bash
+git checkout -b feature/ma-contribution
+git commit -m "feat: description"
+git push origin feature/ma-contribution
+```
 
 ---
 
-## Contexte
+## Licence
 
-CIAlert est né d'un constat simple : les outils de détection d'arnaques existants ne sont pas adaptés au contexte ivoirien. Les arnaques locales ont leurs propres codes, leurs propres plateformes et leurs propres cibles.
-
-Ce projet vise à construire, avec la communauté, un outil qui comprend ce contexte — et qui reste accessible à tous, sans jargon technique.
+MIT — Libre d'utilisation, de modification et de distribution.
 
 ---
 
-*CIAlert — Fait en Côte d'Ivoire, pour la Côte d'Ivoire.*
+*Fait avec ❤️ à Abidjan, Côte d'Ivoire 🇨🇮*  
+*Primé au SIADE 2026*
