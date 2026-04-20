@@ -524,15 +524,7 @@ class CIAlertAgent:
         if use_ai and self.ai:
             try:
                 ai_result = await self.ai.analyze(text, flags, raw_score)
-                ai_confidence = ai_result.get("confidence", 0)
-
-                if raw_score > 0:
-                    # Fusion pondérée règles + IA
-                    raw_score = raw_score * 0.35 + ai_confidence * 0.65
-                else:
-                    # Pas de signal règles — on fait davantage confiance à l'IA
-                    raw_score = ai_confidence * 0.90
-
+                raw_score = raw_score * 0.35 + ai_result["confidence"] * 0.65
                 explanation = ai_result.get("explanation", explanation)
                 category    = ai_result.get("category") or category
                 ai_used     = True
@@ -542,16 +534,6 @@ class CIAlertAgent:
 
         confidence = round(min(max(raw_score, 0.0), 1.0), 3)
         is_scam    = confidence >= 0.35
-
-        # Cohérence : si des flags critiques existent (threat intel, URL malveillante),
-        # forcer is_scam=True et un confidence minimum représentatif
-        critical_flags = [f for f in flags if any(
-            kw in f for kw in ["virustotal", "google_safe_browsing", "tld_suspect", "imitation_marque", "ip_directe"]
-        )]
-        if critical_flags and not is_scam:
-            is_scam    = True
-            confidence = max(confidence, 0.55)
-
         risk_level = _score_to_risk(confidence) if is_scam else "FAIBLE"
 
         return {
