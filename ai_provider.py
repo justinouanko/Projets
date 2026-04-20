@@ -14,38 +14,33 @@ load_dotenv()
 
 AI_PROVIDER = os.getenv("AI_PROVIDER", "groq").lower()
 
-SYSTEM_PROMPT = """Tu es CIAlert, expert en cybersécurité spécialisé dans les arnaques digitales en Côte d'Ivoire et en Afrique de l'Ouest.
-
-## CONTEXTE ARNAQUES CI 2024-2025
-Les techniques actuelles incluent :
-- **Broutage évolué** : faux soldats ONU, faux médecins étrangers sur WhatsApp/Telegram, faux héritages, arnaques sentimentales longue durée
-- **Mobile Money** : faux agents MTN/Orange/Wave, faux remboursements, codes USSD piégés (*133*,*144*,*555*), demande de code secret sous prétexte de "déblocage"
-- **Phishing CI** : faux sites orange-money-ci.com, mtn-momo-bonus.tk, pages de connexion clonées, SMS avec liens courts
-- **Faux emplois** : recrutement urgent sans expérience, agent commercial avec "avance sur commission", travail depuis domicile
-- **Arnaques crypto** : plateformes d'investissement garanties 100%, doublement de mise en 24h, faux bots de trading forex
-- **Arnaques admin** : faux visas express, faux agents consulaires, bourses d'études frauduleuses
-- **Arnaque colis douane** : colis bloqué nécessitant frais de dédouanement
-- **SIM swap** : demande d'informations pour "mettre à jour" la carte SIM
-
-## SIGNAUX D'ALARME CLÉS
-- Demande de paiement préalable pour recevoir un gain
-- Urgence artificielle + pression temporelle
-- Demande de secret / discrétion
-- Numéros +225 07xx ou 05xx dans contexte suspect
-- URLs avec TLDs gratuits (.tk .ml .ga .cf .gq .xyz .buzz)
-- Gains disproportionnés (500 000+ FCFA sans raison)
-- Fautes d'orthographe dans communications "officielles"
-
-## INSTRUCTION
-Analyse le texte et réponds UNIQUEMENT en JSON valide, sans backticks, sans commentaires :
-{
-  "is_scam": true ou false,
-  "confidence": 0.0 à 1.0,
-  "category": "broutage" | "mobile_money" | "phishing" | "faux_emploi" | "crypto_invest" | "arnaque_admin" | "autre" | null,
-  "explanation": "Explication claire en français pour un citoyen ivoirien (2-3 phrases max)"
-}
-
-Sois précis et contextualise pour la Côte d'Ivoire. Un message anodin doit avoir confidence < 0.2."""
+SYSTEM_PROMPT = (
+    "Tu es CIAlert, expert en cybersécurité spécialisé dans les arnaques digitales en Côte d'Ivoire et en Afrique de l'Ouest.\n\n"
+    "## CONTEXTE ARNAQUES CI 2024-2025\n"
+    "Les techniques actuelles incluent :\n"
+    "- Broutage évolué : faux soldats ONU, faux médecins étrangers sur WhatsApp/Telegram, faux héritages, arnaques sentimentales\n"
+    "- Mobile Money : faux agents MTN/Orange/Wave, codes USSD piégés (*133*,*144*,*555*), demande de code secret\n"
+    "- Phishing CI : faux sites orange-money-ci.com, mtn-momo-bonus.tk, SMS avec liens courts\n"
+    "- Faux emplois : recrutement urgent sans expérience, travail depuis domicile\n"
+    "- Arnaques crypto : plateformes d'investissement garanties 100%, doublement de mise en 24h\n"
+    "- Arnaques admin : faux visas express, faux agents consulaires\n"
+    "- Arnaque colis douane : colis bloqué nécessitant frais de dédouanement\n\n"
+    "## SIGNAUX D'ALARME CLÉS\n"
+    "- Demande de paiement préalable pour recevoir un gain\n"
+    "- Urgence artificielle + pression temporelle\n"
+    "- URLs avec TLDs gratuits (.tk .ml .ga .cf .gq .xyz .buzz) -> TOUJOURS suspect, confidence >= 0.70\n"
+    "- Numéros +225 07xx ou 05xx dans contexte suspect\n\n"
+    "## RÈGLES CRITIQUES POUR LE SCORE confidence\n"
+    "- Si les flags contiennent tld_suspect, imitation_marque, google_safe_browsing ou virustotal -> confidence MINIMUM 0.65, is_scam = true\n"
+    "- Si le score règles fourni est > 0.30 -> ton confidence ne peut PAS être inférieur à 0.40\n"
+    "- Un message anodin sans flag et score règles = 0.0 -> confidence < 0.20\n"
+    "- Ne retourne JAMAIS confidence = 0 si des flags suspects sont présents\n\n"
+    "## INSTRUCTION\n"
+    "Analyse le texte ET les flags déjà détectés, puis réponds UNIQUEMENT en JSON valide, sans backticks, sans commentaires :\n"
+    '{"is_scam": true ou false, "confidence": 0.0 à 1.0, '
+    '"category": "broutage"|"mobile_money"|"phishing"|"faux_emploi"|"crypto_invest"|"arnaque_admin"|"autre"|null, '
+    '"explanation": "Explication claire en français pour un citoyen ivoirien (2-3 phrases max)"}'
+)
 
 
 def _build_user_prompt(text: str, flags: list, rule_score: float) -> str:
@@ -61,6 +56,30 @@ def _parse_ai_json(raw: str) -> dict:
     """Parse la réponse JSON de l'IA, robuste aux backticks."""
     clean = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
     return json.loads(clean)
+
+
+def _clamp_confidence(confidence: float, flags: list, rule_score: float) -> float:
+    """
+    Garantit la coherence entre confidence, flags detectes et score de regles.
+    Evite le cas ou confidence=0 alors que des signaux critiques existent.
+    """
+    critical_flag_keywords = [
+        "tld_suspect", "imitation_marque", "google_safe_browsing",
+        "virustotal", "ip_directe", "url_raccourcie", "path_suspect",
+    ]
+    has_critical = any(
+        any(kw in f for kw in critical_flag_keywords)
+        for f in flags
+    )
+
+    if has_critical:
+        confidence = max(confidence, 0.65)
+    elif rule_score > 0.30:
+        confidence = max(confidence, 0.40)
+    elif rule_score > 0.10:
+        confidence = max(confidence, 0.25)
+
+    return round(min(max(confidence, 0.0), 1.0), 3)
 
 
 # ─────────────────────────────────────────────
@@ -107,7 +126,7 @@ class GroqProvider(AIProvider):
             raw = resp.json()["choices"][0]["message"]["content"]
             data = _parse_ai_json(raw)
             return {
-                "confidence":  float(data.get("confidence", rule_score)),
+                "confidence":  _clamp_confidence(float(data.get("confidence", rule_score)), flags, rule_score),
                 "category":    data.get("category"),
                 "explanation": data.get("explanation", ""),
             }
@@ -139,7 +158,7 @@ class GeminiProvider(AIProvider):
             raw = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
             data = _parse_ai_json(raw)
             return {
-                "confidence":  float(data.get("confidence", rule_score)),
+                "confidence":  _clamp_confidence(float(data.get("confidence", rule_score)), flags, rule_score),
                 "category":    data.get("category"),
                 "explanation": data.get("explanation", ""),
             }
@@ -179,7 +198,7 @@ class ClaudeProvider(AIProvider):
             raw = resp.json()["content"][0]["text"]
             data = _parse_ai_json(raw)
             return {
-                "confidence":  float(data.get("confidence", rule_score)),
+                "confidence":  _clamp_confidence(float(data.get("confidence", rule_score)), flags, rule_score),
                 "category":    data.get("category"),
                 "explanation": data.get("explanation", ""),
             }
