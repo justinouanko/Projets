@@ -1,26 +1,91 @@
 """
-CIAlert - Module de détection de fausses informations
-Analyse les signaux de manipulation sans prétendre faire du fact-checking absolu.
+CIAlert — fake_news_agent.py
+Détection de signaux de manipulation et de désinformation.
+Analyse rhétorique et contextuelle — ne fait pas de fact-checking absolu.
+
+Utilise le même provider IA que le reste de la plateforme (Groq par défaut,
+swappable via la variable d'environnement AI_PROVIDER).
 """
 
-import os
 import re
 import json
-from groq import Groq
+import os
+import logging
+from dotenv import load_dotenv
 
-# --------------------------------------------------------------------------- #
-# Client IA (même logique que mon agent principal)
-# --------------------------------------------------------------------------- #
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-MODEL = "llama-3.1-8b-instant"
+load_dotenv()
 
-# --------------------------------------------------------------------------- #
-# Prompt système spécialisé fake news
-# --------------------------------------------------------------------------- #
-FAKE_NEWS_SYSTEM_PROMPT = """Tu es un expert en détection de désinformation et manipulation de l'information, 
+logger = logging.getLogger(__name__)
+
+
+# ─────────────────────────────────────────────
+# CLIENT IA — même provider que agent.py
+# ─────────────────────────────────────────────
+
+def _get_client():
+    """
+    Retourne un client IA selon AI_PROVIDER.
+    Groq par défaut, Gemini ou Claude si configuré.
+    Isolé dans une fonction pour éviter les imports au niveau module.
+    """
+    provider = os.getenv("AI_PROVIDER", "groq").lower()
+
+    if provider == "gemini":
+        import google.generativeai as genai
+        genai.configure(api_key=os.getenv("GEMINI_API_KEY", ""))
+        return "gemini", None
+
+    if provider == "claude":
+        import anthropic
+        return "claude", anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
+
+    # Groq par défaut
+    from groq import Groq
+    return "groq", Groq(api_key=os.getenv("GROQ_API_KEY", ""))
+
+
+def _call_ai(prompt_system: str, prompt_user: str) -> str:
+    """Appelle le provider IA configuré et retourne le texte brut de la réponse."""
+    provider, client = _get_client()
+
+    if provider == "groq":
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {"role": "system", "content": prompt_system},
+                {"role": "user",   "content": prompt_user},
+            ],
+            temperature=0.1,
+            max_tokens=1000,
+        )
+        return response.choices[0].message.content.strip()
+
+    if provider == "gemini":
+        import google.generativeai as genai
+        model    = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(f"{prompt_system}\n\n{prompt_user}")
+        return response.text.strip()
+
+    if provider == "claude":
+        response = client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=1000,
+            system=prompt_system,
+            messages=[{"role": "user", "content": prompt_user}],
+        )
+        return response.content[0].text.strip()
+
+    raise ValueError(f"Provider IA non reconnu : {provider}")
+
+
+# ─────────────────────────────────────────────
+# PROMPT SYSTÈME
+# ─────────────────────────────────────────────
+
+FAKE_NEWS_SYSTEM_PROMPT = """Tu es un expert en détection de désinformation et manipulation de l'information,
 spécialisé dans le contexte ivoirien et ouest-africain.
 
-Ton rôle est d'analyser un texte ou une URL pour détecter des SIGNAUX DE MANIPULATION, 
+Ton rôle est d'analyser un texte ou une URL pour détecter des SIGNAUX DE MANIPULATION,
 sans prétendre vérifier les faits absolus. Tu es honnête sur les limites de ton analyse.
 
 ## Signaux que tu recherches
@@ -70,83 +135,59 @@ sans prétendre vérifier les faits absolus. Tu es honnête sur les limites de t
 - Réponds UNIQUEMENT en JSON valide, sans markdown ni texte avant/après
 """
 
-# --------------------------------------------------------------------------- #
-# Pré-analyse statique (avant appel IA)
-# --------------------------------------------------------------------------- #
+
+# ─────────────────────────────────────────────
+# PRÉ-ANALYSE STATIQUE
+# ─────────────────────────────────────────────
 
 ALARMISTE_KEYWORDS = [
     "urgent", "choc", "incroyable", "exclusif", "breaking", "alerte",
     "partagez avant", "avant suppression", "censuré", "ils cachent",
     "100% prouvé", "officiellement confirmé", "source sûre",
-    "le gouvernement ne veut pas", "les médias taisent"
+    "le gouvernement ne veut pas", "les médias taisent",
 ]
 
 INSTITUTIONS_USURPEES = [
     "oms", "who", "artci", "bceao", "fmi", "banque mondiale",
     "ministre", "président", "premier ministre", "mtn", "orange money",
-    "wave", "moov", "côte d'ivoire officiel"
+    "wave", "moov", "côte d'ivoire officiel",
 ]
 
 TENSIONS_KEYWORDS = [
     "dioula", "bété", "baoulé", "guéré", "nordiste", "sudiste",
-    "chrétien", "musulman", "étranger", "ivoirien de souche"
+    "chrétien", "musulman", "étranger", "ivoirien de souche",
 ]
 
 
-def pre_analyse_statique(texte: str) -> dict:
+def _pre_analyse_statique(texte: str) -> dict:
     """Détecte des signaux évidents avant l'appel IA pour enrichir le contexte."""
     texte_lower = texte.lower()
+    signaux     = []
 
-    signaux = []
-
-    # Mots alarmistes
     found_alarm = [kw for kw in ALARMISTE_KEYWORDS if kw in texte_lower]
     if found_alarm:
-        signaux.append({
-            "type": "rhétorique",
-            "mots": found_alarm,
-            "poids": len(found_alarm) * 10
-        })
+        signaux.append({"type": "rhétorique", "mots": found_alarm, "poids": len(found_alarm) * 10})
 
-    # Institutions usurpées
     found_instit = [kw for kw in INSTITUTIONS_USURPEES if kw in texte_lower]
     if found_instit:
-        signaux.append({
-            "type": "usurpation",
-            "mots": found_instit,
-            "poids": len(found_instit) * 15
-        })
+        signaux.append({"type": "usurpation", "mots": found_instit, "poids": len(found_instit) * 15})
 
-    # Tensions ethniques/religieuses
     found_tensions = [kw for kw in TENSIONS_KEYWORDS if kw in texte_lower]
     if found_tensions:
-        signaux.append({
-            "type": "tension",
-            "mots": found_tensions,
-            "poids": len(found_tensions) * 20
-        })
+        signaux.append({"type": "tension", "mots": found_tensions, "poids": len(found_tensions) * 20})
 
-    # Texte tout en majuscules (signal fort)
-    mots = texte.split()
-    mots_majuscules = [m for m in mots if m.isupper() and len(m) > 3]
+    mots_majuscules = [m for m in texte.split() if m.isupper() and len(m) > 3]
     if len(mots_majuscules) > 3:
-        signaux.append({
-            "type": "rhétorique",
-            "mots": mots_majuscules[:5],
-            "poids": 15
-        })
+        signaux.append({"type": "rhétorique", "mots": mots_majuscules[:5], "poids": 15})
 
     score_statique = min(sum(s["poids"] for s in signaux), 60)
 
-    return {
-        "signaux_statiques": signaux,
-        "score_statique": score_statique
-    }
+    return {"signaux_statiques": signaux, "score_statique": score_statique}
 
 
-# --------------------------------------------------------------------------- #
-# Fonction principale d'analyse
-# --------------------------------------------------------------------------- #
+# ─────────────────────────────────────────────
+# FONCTION PRINCIPALE
+# ─────────────────────────────────────────────
 
 def analyser_fake_news(contenu: str, type_contenu: str = "texte") -> dict:
     """
@@ -159,104 +200,84 @@ def analyser_fake_news(contenu: str, type_contenu: str = "texte") -> dict:
     Returns:
         dict avec verdict, score, signaux, résumé, recommandation
     """
-
     if not contenu or len(contenu.strip()) < 20:
         return {
-            "verdict": "INDÉTERMINÉ",
+            "verdict":           "INDÉTERMINÉ",
             "score_manipulation": 0,
-            "signaux_detectes": [],
-            "resume": "Le contenu fourni est trop court pour être analysé.",
-            "recommandation": "Fournissez un texte plus complet ou une URL valide.",
-            "limite_analyse": "Analyse impossible sur un contenu aussi court.",
-            "erreur": "contenu_trop_court"
+            "signaux_detectes":  [],
+            "resume":            "Le contenu fourni est trop court pour être analysé.",
+            "recommandation":    "Fournissez un texte plus complet ou une URL valide.",
+            "limite_analyse":    "Analyse impossible sur un contenu aussi court.",
+            "erreur":            "contenu_trop_court",
         }
 
-    # Pré-analyse statique
-    pre_analyse = pre_analyse_statique(contenu)
+    pre_analyse = _pre_analyse_statique(contenu)
 
-    # Construction du prompt utilisateur
     if type_contenu == "url":
-        user_prompt = f"""Analyse cette URL pour détecter des signaux de manipulation :
-
-URL : {contenu}
-
-Note : Je ne peux pas accéder au contenu de l'URL directement. Analyse l'URL elle-même 
-(structure du domaine, mots-clés suspects dans l'URL, imitation de médias connus).
-
-Signaux pré-détectés dans l'URL : {json.dumps(pre_analyse, ensure_ascii=False)}
-"""
+        user_prompt = (
+            f"Analyse cette URL pour détecter des signaux de manipulation :\n\n"
+            f"URL : {contenu}\n\n"
+            f"Note : Je ne peux pas accéder au contenu de l'URL directement. "
+            f"Analyse l'URL elle-même (structure du domaine, mots-clés suspects, imitation de médias connus).\n\n"
+            f"Signaux pré-détectés dans l'URL : {json.dumps(pre_analyse, ensure_ascii=False)}"
+        )
     else:
-        user_prompt = f"""Analyse ce texte pour détecter des signaux de manipulation :
-
----
-{contenu}
----
-
-Signaux pré-détectés automatiquement : {json.dumps(pre_analyse, ensure_ascii=False)}
-
-Tiens compte de ces signaux dans ton analyse mais reste critique et indépendant.
-"""
-
-    # Appel IA
-    try:
-        response = client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": FAKE_NEWS_SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt}
-            ],
-            temperature=0.1,  # Faible pour des résultats cohérents
-            max_tokens=1000
+        user_prompt = (
+            f"Analyse ce texte pour détecter des signaux de manipulation :\n\n"
+            f"---\n{contenu}\n---\n\n"
+            f"Signaux pré-détectés automatiquement : {json.dumps(pre_analyse, ensure_ascii=False)}\n\n"
+            f"Tiens compte de ces signaux dans ton analyse mais reste critique et indépendant."
         )
 
-        raw = response.choices[0].message.content.strip()
+    try:
+        raw = _call_ai(FAKE_NEWS_SYSTEM_PROMPT, user_prompt)
 
-        # Nettoyage JSON si nécessaire
+        # Nettoyage JSON si le modèle ajoute des balises markdown
         raw = re.sub(r'^```json\s*', '', raw)
         raw = re.sub(r'\s*```$', '', raw)
 
         resultat = json.loads(raw)
-
-        # Ajout du score statique comme signal de validation
         resultat["score_statique"] = pre_analyse["score_statique"]
-        resultat["type_contenu"] = type_contenu
+        resultat["type_contenu"]   = type_contenu
 
         return resultat
 
     except json.JSONDecodeError:
+        logger.error("fake_news_agent : réponse IA non parseable")
         return {
-            "verdict": "ERREUR",
+            "verdict":           "ERREUR",
             "score_manipulation": 0,
-            "signaux_detectes": [],
-            "resume": "Erreur lors de l'analyse. Réessayez.",
-            "recommandation": "Vérifiez que le contenu est bien du texte lisible.",
-            "limite_analyse": "Réponse IA non parseable.",
-            "erreur": "json_parse_error"
+            "signaux_detectes":  [],
+            "resume":            "Erreur lors de l'analyse. Réessayez.",
+            "recommandation":    "Vérifiez que le contenu est bien du texte lisible.",
+            "limite_analyse":    "Réponse IA non parseable.",
+            "erreur":            "json_parse_error",
         }
 
-    except Exception as e:
+    except Exception as error:
+        logger.error(f"fake_news_agent : erreur inattendue — {error}")
         return {
-            "verdict": "ERREUR",
+            "verdict":           "ERREUR",
             "score_manipulation": 0,
-            "signaux_detectes": [],
-            "resume": "Une erreur technique s'est produite.",
-            "recommandation": "Réessayez dans quelques instants.",
-            "limite_analyse": str(e),
-            "erreur": "api_error"
+            "signaux_detectes":  [],
+            "resume":            "Une erreur technique s'est produite.",
+            "recommandation":    "Réessayez dans quelques instants.",
+            "limite_analyse":    str(error),
+            "erreur":            "api_error",
         }
 
 
-# --------------------------------------------------------------------------- #
-# Test rapide
-# --------------------------------------------------------------------------- #
+# ─────────────────────────────────────────────
+# TEST LOCAL
+# ─────────────────────────────────────────────
+
 if __name__ == "__main__":
     texte_test = """
-    URGENT !!! LE GOUVERNEMENT CACHE LA VÉRITÉ ! 
-    Selon une source sûre au sein de la BCEAO, Orange Money va bloquer tous les comptes 
+    URGENT !!! LE GOUVERNEMENT CACHE LA VÉRITÉ !
+    Selon une source sûre au sein de la BCEAO, Orange Money va bloquer tous les comptes
     des Ivoiriens la semaine prochaine. PARTAGEZ AVANT SUPPRESSION !
     Le FMI a officiellement confirmé que la Côte d'Ivoire est en faillite.
     Ne laissez pas les médias vous mentir. 100% PROUVÉ.
     """
-
     resultat = analyser_fake_news(texte_test, "texte")
     print(json.dumps(resultat, ensure_ascii=False, indent=2))
