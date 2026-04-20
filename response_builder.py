@@ -53,7 +53,6 @@ CATEGORY_MESSAGES = {
     ),
 }
 
-# Messages quand aucune catégorie précise n'est identifiée
 GENERIC_SCAM_MESSAGE = (
     "Ce contenu présente plusieurs signaux caractéristiques d'une arnaque."
 )
@@ -90,10 +89,11 @@ FAKE_NEWS_MESSAGES = {
 
 def build_response(scan_result: dict, scan_id: Optional[int] = None) -> dict:
     """
-    Construit la réponse finale envoyée au frontend à partir du résultat brut du router.
+    Construit la réponse finale envoyée au frontend.
 
     Ce que le frontend reçoit :
     - Le verdict et le niveau de risque
+    - Un label de confiance conditionnel (Probabilité d'arnaque / Fiabilité)
     - Un message clair en français simple
     - Un conseil d'action adapté au risque
     - Les signaux fake news si pertinents
@@ -106,15 +106,22 @@ def build_response(scan_result: dict, scan_id: Optional[int] = None) -> dict:
     - Les flags techniques de l'agent
     - Les données brutes de l'IA
     """
-    is_scam = scan_result.get("is_scam", False)
-    risk_level = scan_result.get("risk_level", "FAIBLE")
-    scam_category = scan_result.get("scam_category")
-    has_fake_news = scan_result.get("has_fake_news", False)
+    is_scam           = scan_result.get("is_scam", False)
+    risk_level        = scan_result.get("risk_level", "FAIBLE")
+    scam_category     = scan_result.get("scam_category")
     fake_news_verdict = scan_result.get("fake_news_verdict")
-    phone_flagged = scan_result.get("phone_flagged", False)
-    ai_explanation = scan_result.get("ai_explanation", "")
-    file_info = scan_result.get("file_info")
-    processing_ms = scan_result.get("processing_ms", 0)
+    phone_flagged     = scan_result.get("phone_flagged", False)
+    ai_explanation    = scan_result.get("ai_explanation", "")
+    file_info         = scan_result.get("file_info")
+    processing_ms     = scan_result.get("processing_ms", 0)
+
+    # Label conditionnel — Option A
+    # is_scam=True  → "Probabilité d'arnaque" (on indique la probabilité que ce soit une arnaque)
+    # is_scam=False → "Fiabilité"             (on indique à quel point le contenu semble fiable)
+    confidence_label = scan_result.get(
+        "confidence_label",
+        "Probabilité d\u2019arnaque" if is_scam else "Fiabilité"
+    )
 
     # ── Message principal ─────────────────────────────────────────────────
     if is_scam:
@@ -122,15 +129,13 @@ def build_response(scan_result: dict, scan_id: Optional[int] = None) -> dict:
     else:
         main_message = SAFE_MESSAGE
 
-    # ── Explication IA (nettoyée pour l'affichage) ────────────────────────
-    # On affiche l'explication IA seulement si elle apporte quelque chose
-    # au-delà du message de catégorie
+    # ── Explication IA nettoyée ───────────────────────────────────────────
     explanation = _clean_explanation(ai_explanation) if ai_explanation else None
 
     # ── Conseil d'action ──────────────────────────────────────────────────
     advice = RISK_ADVICE.get(risk_level, RISK_ADVICE["FAIBLE"])
 
-    # ── Bloc fake news (simplifié) ────────────────────────────────────────
+    # ── Bloc fake news simplifié ──────────────────────────────────────────
     fake_news_block = None
     if fake_news_verdict and fake_news_verdict not in ("ERREUR", "INDÉTERMINÉ"):
         fake_news_block = {
@@ -145,19 +150,19 @@ def build_response(scan_result: dict, scan_id: Optional[int] = None) -> dict:
 
     # ── Résultat final ────────────────────────────────────────────────────
     response = {
-        "scan_id":       scan_id,
-        "is_scam":       is_scam,
-        "risk_level":    risk_level,
-        "message":       main_message,
-        "explanation":   explanation,
-        "advice":        advice,
-        "fake_news":     fake_news_block,
-        "phone_warning": phone_warning,
-        "file_info":     file_info,
-        "processing_ms": processing_ms,
+        "scan_id":          scan_id,
+        "is_scam":          is_scam,
+        "risk_level":       risk_level,
+        "confidence_label": confidence_label,
+        "message":          main_message,
+        "explanation":      explanation,
+        "advice":           advice,
+        "fake_news":        fake_news_block,
+        "phone_warning":    phone_warning,
+        "file_info":        file_info,
+        "processing_ms":    processing_ms,
     }
 
-    # On retire les champs None pour alléger la réponse
     return {k: v for k, v in response.items() if v is not None}
 
 
@@ -166,18 +171,13 @@ def build_response(scan_result: dict, scan_id: Optional[int] = None) -> dict:
 # ─────────────────────────────────────────────
 
 def _clean_explanation(text: str) -> Optional[str]:
-    """
-    Nettoie l'explication brute de l'IA avant affichage.
-    Supprime les mentions techniques et les phrases trop courtes.
-    """
+    """Nettoie l'explication brute de l'IA avant affichage."""
     if not text or len(text.strip()) < 20:
         return None
 
-    # Supprime les mentions d'indisponibilité IA
     if "[IA indisponible" in text:
         text = text[:text.index("[IA indisponible")].strip()
 
-    # Supprime les formulations trop techniques
     technical_phrases = [
         "Analyse par règles locales",
         "Niveau de confiance",
