@@ -94,6 +94,7 @@ def build_response(scan_result: dict, scan_id: Optional[int] = None) -> dict:
     Ce que le frontend reçoit :
     - Le verdict et le niveau de risque
     - Un label de confiance conditionnel (Probabilité d'arnaque / Fiabilité)
+    - Un score adapté au label : probabilité d'arnaque si scam, fiabilité (inversée) si sain
     - Un message clair en français simple
     - Un conseil d'action adapté au risque
     - Les signaux fake news si pertinents
@@ -116,12 +117,18 @@ def build_response(scan_result: dict, scan_id: Optional[int] = None) -> dict:
     processing_ms     = scan_result.get("processing_ms", 0)
 
     # Label conditionnel — Option A
-    # is_scam=True  → "Probabilité d'arnaque" (on indique la probabilité que ce soit une arnaque)
-    # is_scam=False → "Fiabilité"             (on indique à quel point le contenu semble fiable)
+    # is_scam=True  → "Probabilité d'arnaque" (probabilité que ce soit une arnaque)
+    # is_scam=False → "Fiabilité"             (à quel point le contenu semble fiable)
     confidence_label = scan_result.get(
         "confidence_label",
         "Probabilité d\u2019arnaque" if is_scam else "Fiabilité"
     )
+
+    # Score affiché adapté au label :
+    # - arnaque  → on garde la confidence brute (ex: 0.87 → 87% de probabilité d'arnaque)
+    # - sain     → on inverse (ex: 0.05 → 95% de fiabilité)
+    raw_confidence     = scan_result.get("confidence", 0)
+    display_confidence = raw_confidence if is_scam else round(1 - raw_confidence, 3)
 
     # ── Message principal ─────────────────────────────────────────────────
     if is_scam:
@@ -150,20 +157,21 @@ def build_response(scan_result: dict, scan_id: Optional[int] = None) -> dict:
 
     # ── Résultat final ────────────────────────────────────────────────────
     response = {
-    "scan_id":          scan_id,
-    "is_scam":          is_scam,
-    "confidence":       scan_result.get("confidence", 0),      # ← AJOUT
-    "risk_level":       risk_level,
-    "scam_category":    scam_category,                          # ← AJOUT
-    "confidence_label": confidence_label,
-    "message":          main_message,
-    "explanation":      explanation,
-    "advice":           advice,
-    "fake_news":        fake_news_block,
-    "phone_warning":    phone_warning,
-    "file_info":        file_info,
-    "processing_ms":    processing_ms,
-}
+        "scan_id":          scan_id,
+        "is_scam":          is_scam,
+        "confidence":       display_confidence,
+        "risk_level":       risk_level,
+        "scam_category":    scam_category,
+        "confidence_label": confidence_label,
+        "message":          main_message,
+        "explanation":      explanation,
+        "advice":           advice,
+        "fake_news":        fake_news_block,
+        "phone_warning":    phone_warning,
+        "file_info":        file_info,
+        "processing_ms":    processing_ms,
+    }
+
     return {k: v for k, v in response.items() if v is not None}
 
 
