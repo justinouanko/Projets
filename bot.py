@@ -149,7 +149,11 @@ def format_result(data: dict) -> str:
     else:
         header = "✅ *Contenu sain*\nAucun signal d'arnaque détecté."
 
+    # confidence est déjà adapté par response_builder :
+    # - arnaque → probabilité d'arnaque (ex: 0.87 → 87%)
+    # - sain    → fiabilité inversée    (ex: 0.95 → 95%)
     confidence = round((data.get("confidence") or 0) * 100)
+    conf_label = data.get("confidence_label") or ("Probabilité d'arnaque" if is_scam else "Fiabilité")
     conf_bar   = "█" * (confidence // 10) + "░" * (10 - confidence // 10)
 
     message     = data.get("message", "")
@@ -171,7 +175,7 @@ def format_result(data: dict) -> str:
 
     scan_id = data.get("scan_id", "—")
 
-    lines = [header, "", f"📊 *Confiance :* {confidence}%", f"`{conf_bar}`", ""]
+    lines = [header, "", f"📊 *{conf_label} :* {confidence}%", f"`{conf_bar}`", ""]
 
     if file_line:
         lines.append(file_line)
