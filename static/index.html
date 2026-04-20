@@ -7,7 +7,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
-    /* ── VARIABLES ─────────────────────────────────────────────────── */
     :root {
       --orange:      #FF5C1A;
       --orange-soft: #FFF0E8;
@@ -41,6 +40,7 @@
       --nav-bg:        rgba(255,255,255,0.95);
     }
 
+    /* Fond dark sobre — #111110 comme convenu */
     [data-theme="dark"] {
       --bg:            #111110;
       --bg-alt:        #1A1917;
@@ -56,7 +56,6 @@
       --nav-bg:        rgba(17,17,16,0.97);
     }
 
-    /* ── RESET ─────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
     body {
@@ -96,7 +95,6 @@
 
     .nav-right { display: flex; align-items: center; gap: 0.75rem; }
 
-    /* Thème toggle */
     .theme-toggle { position: relative; width: 52px; height: 28px; cursor: pointer; }
     .theme-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
     .theme-track {
@@ -167,7 +165,6 @@
     .scan-textarea:focus { border-color: var(--orange); }
     .scan-textarea::placeholder { color: var(--text-muted); }
 
-    /* Zone fichier */
     .file-area { margin-top: 0.85rem; }
     .file-drop-zone {
       border: 2px dashed var(--border); border-radius: var(--radius-sm);
@@ -485,7 +482,6 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* ── RESPONSIVE ─────────────────────────────────────────────────── */
     @media (max-width: 768px) { .nav-links { display: none; } nav { padding: 0.9rem 1.25rem; } }
     @media (max-width: 640px) {
       main { padding: 2rem 1.25rem 3rem; }
@@ -518,9 +514,10 @@
     <a href="#scan-anchor">Analyser</a>
     <a href="#report-anchor">Signaler</a>
     <a href="#stats-anchor">Statistiques</a>
-    <a href="https://t.me/votre_bot" target="_blank">Telegram</a>
+    <a href="https://t.me/my_cialert_bot" target="_blank">Telegram</a>
   </div>
 
+  <!-- Pas de "En ligne", pas de bouton API — toggle thème uniquement -->
   <div class="nav-right">
     <label class="theme-toggle" title="Changer de thème">
       <input type="checkbox" id="themeToggle" onchange="toggleTheme(this)" />
@@ -533,7 +530,6 @@
 <!-- ── MAIN ─────────────────────────────────────────────────────────────── -->
 <main>
 
-  <!-- Hero -->
   <div class="hero">
     <div class="hero-badge">
       <div class="badge-dot"></div>
@@ -543,7 +539,6 @@
     <p>Collez un SMS, une URL, un numéro ou un texte suspect. CIAlert analyse en quelques secondes.</p>
   </div>
 
-  <!-- Champ universel -->
   <div class="scan-box" id="scan-anchor">
     <textarea
       id="scanInput"
@@ -591,8 +586,9 @@
         </div>
       </div>
       <div class="result-meta">
-        <div class="meta-item">
-          <div class="meta-label">Confiance</div>
+        <div class="meta-item" id="metaConfItem">
+          <!-- Le label change dynamiquement selon le verdict -->
+          <div class="meta-label" id="metaConfLabel">Confiance</div>
           <div class="meta-value" id="metaConf">—</div>
           <div class="conf-bar-wrap"><div class="conf-bar" id="confBar"></div></div>
         </div>
@@ -715,8 +711,8 @@
 <footer>
   <div class="footer-brand"><span>CI</span>Alert</div>
   <div class="footer-links">
-    <a href="https://github.com/votre-repo/cialert" target="_blank">GitHub</a>
-    <a href="https://t.me/votre_bot" target="_blank">Telegram</a>
+    <a href="https://github.com/justinouanko/cialert" target="_blank">GitHub</a>
+    <a href="https://t.me/my_cialert_bot" target="_blank">Telegram</a>
     <a href="/docs" target="_blank">API</a>
   </div>
   <div class="footer-copy">Abidjan, Côte d'Ivoire 🇨🇮</div>
@@ -782,8 +778,7 @@
   // ── UTILITAIRES ────────────────────────────────────────────────────
   function showToast(msg, type = 'success') {
     const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.className   = `toast ${type} show`;
+    t.textContent = msg; t.className = `toast ${type} show`;
     setTimeout(() => t.classList.remove('show'), 3500);
   }
   function escapeHTML(s) {
@@ -852,10 +847,16 @@
     if (d.file_info)
       badges.innerHTML += `<span class="result-badge">📄 ${escapeHTML(d.file_info.filename)}</span>`;
 
+    // ── Label de confiance conditionnel (Option A) ──────────────────
+    // "Probabilité d'arnaque" si arnaque, "Fiabilité" si sain
+    const confLabel = d.confidence_label ||
+      (isScam ? 'Probabilit\u00e9 d\u2019arnaque' : 'Fiabilit\u00e9');
+    document.getElementById('metaConfLabel').textContent = confLabel;
+
     const pct = Math.round((d.confidence || 0) * 100);
     document.getElementById('metaConf').textContent = `${pct}%`;
     const bar = document.getElementById('confBar');
-    bar.style.width = '0%';
+    bar.style.width      = '0%';
     bar.style.background = isScam ? 'var(--red)' : 'var(--green)';
     setTimeout(() => { bar.style.width = `${pct}%`; }, 50);
 
