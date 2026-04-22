@@ -4,13 +4,14 @@ API FastAPI V2.0 — endpoint unifié /scan.
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -30,6 +31,7 @@ from whatsapp_bot import send_whatsapp_message
 logger = logging.getLogger(__name__)
 
 _STATIC_DIR = Path(__file__).parent / "static"
+WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "cialert_whatsapp_2026")
 
 
 # ─────────────────────────────────────────────
@@ -77,6 +79,64 @@ class FeedbackRequest(BaseModel):
 
 
 # ─────────────────────────────────────────────
+# WEBHOOK WHATSAPP — DOIT ÊTRE AVANT StaticFiles
+# ─────────────────────────────────────────────
+
+@app.get("/webhook/whatsapp", tags=["WhatsApp"])
+async def whatsapp_verify(
+    hub_mode: str = Query(None, alias="hub.mode"),
+    hub_challenge: str = Query(None, alias="hub.challenge"),
+    hub_verify_token: str = Query(None, alias="hub.verify_token"),
+):
+    if hub_mode == "subscribe" and hub_verify_token == WHATSAPP_VERIFY_TOKEN:
+        return PlainTextResponse(hub_challenge)
+    return PlainTextResponse("Forbidden", status_code=403)
+
+
+@app.post("/webhook/whatsapp", tags=["WhatsApp"])
+async def whatsapp_webhook(request: Request):
+    data = await request.json()
+    try:
+        entry = data["entry"][0]["changes"][0]["value"]
+        message = entry["messages"][0]
+        sender = message["from"]
+        text = message.get("text", {}).get("body", "")
+
+        if not text:
+            return {"status": "ignored"}
+
+        scan_result = await run_scan(text=text, source="whatsapp")
+        response_text = _format_whatsapp_response(build_response(scan_result))
+        await send_whatsapp_message(sender, response_text)
+    except (KeyError, IndexError):
+        pass
+
+    return {"status": "ok"}
+
+
+def _format_whatsapp_response(result: dict) -> str:
+    emoji = "🚨" if result.get("is_scam") else "✅"
+    label = result.get("confidence_label", "Confiance")
+    confidence = int(result.get("confidence", 0) * 100)
+    category = result.get("scam_category", "")
+    explanation = result.get("explanation", "")
+    advice = result.get("advice", "")
+
+    lines = [
+        f"{emoji} *{'ARNAQUE DÉTECTÉE' if result.get('is_scam') else 'Message sain'}*",
+        f"📊 {label} : {confidence}%",
+    ]
+    if category:
+        lines.append(f"🏷️ Catégorie : {category}")
+    if explanation:
+        lines.append(f"\n💬 {explanation}")
+    if advice:
+        lines.append(f"\n💡 {advice}")
+
+    return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────
 # ENDPOINT PRINCIPAL : POST /scan
 # ─────────────────────────────────────────────
 
@@ -86,11 +146,6 @@ async def scan(
     content: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
 ):
-    """
-    Analyse universelle — texte libre, lien, numéro, fichier ou combinaison.
-    Le type de contenu est détecté automatiquement.
-    """
-    # Lecture du fichier si présent
     file_data = None
     file_content_type = None
     filename = None
@@ -100,7 +155,6 @@ async def scan(
         file_content_type = file.content_type or ""
         filename = file.filename
 
-    # Vérification : au moins un des deux champs est rempli
     if not content and not file_data:
         raise HTTPException(
             status_code=400,
@@ -109,7 +163,6 @@ async def scan(
 
     source = _detect_source(request)
 
-    # Analyse
     scan_result = await run_scan(
         text=content,
         file_data=file_data,
@@ -124,7 +177,6 @@ async def scan(
             detail=scan_result.get("error", "Analyse impossible.")
         )
 
-    # Sauvegarde en base
     scan_id = save_scan(
         raw_input=scan_result["raw_input"],
         input_type=scan_result["input_type"],
@@ -145,10 +197,8 @@ async def scan(
         source=source,
     )
 
-    # Enregistrement des numéros suspects dans le répertoire
     register_scan_phones(scan_result, scan_id)
 
-    # Réponse simplifiée pour le frontend
     return build_response(scan_result, scan_id=scan_id)
 
 
@@ -158,11 +208,6 @@ async def scan(
 
 @app.post("/report", tags=["Signalements"])
 async def report(payload: ReportRequest):
-    """
-    Signalement manuel. Le type d'arnaque est détecté automatiquement
-    depuis le contenu — l'utilisateur n'a pas à le préciser.
-    """
-    # Détection automatique du type depuis le contenu
     report_type = _detect_report_type(payload.content)
 
     report_id = save_report(
@@ -174,7 +219,6 @@ async def report(payload: ReportRequest):
         description=payload.description,
     )
 
-    # Alimentation du répertoire de numéros depuis le signalement
     from phone_registry import register_phone_from_text
     register_phone_from_text(
         text=payload.content,
@@ -196,7 +240,6 @@ async def report(payload: ReportRequest):
 
 @app.post("/feedback", tags=["Feedback"])
 async def feedback(payload: FeedbackRequest):
-    """Retour utilisateur sur un résultat d'analyse (correct / incorrect)."""
     feedback_id = save_feedback(
         correct=payload.correct,
         scan_id=payload.scan_id,
@@ -211,13 +254,11 @@ async def feedback(payload: FeedbackRequest):
 
 @app.get("/stats", tags=["Interne"])
 async def stats():
-    """Statistiques globales — usage interne."""
     return get_global_stats()
 
 
 @app.get("/history", tags=["Interne"])
 async def history(limit: int = 20):
-    """Historique des analyses — usage interne."""
     return get_recent_analyses(limit=limit)
 
 
@@ -228,13 +269,10 @@ async def health():
 
 # ─────────────────────────────────────────────
 # ENDPOINTS V1 — compatibilité bot Telegram
-# Ces endpoints restent actifs pendant la migration du bot.
-# Ils seront supprimés en V2.1 une fois le bot migré vers /scan.
 # ─────────────────────────────────────────────
 
 @app.post("/analyze", tags=["Compatibilité V1"], include_in_schema=False)
 async def analyze_v1(request: Request):
-    """Redirige vers /scan pour compatibilité avec le bot Telegram."""
     body = await request.json()
     text = body.get("text", "")
     if not text:
@@ -245,8 +283,6 @@ async def analyze_v1(request: Request):
     if not scan_result.get("success"):
         raise HTTPException(status_code=422, detail=scan_result.get("error"))
 
-    # On sauvegarde aussi dans l'ancienne table pour ne pas casser
-    # les requêtes existantes du bot sur /history
     analysis_id = save_analysis(
         input_text=text,
         is_scam=scan_result["is_scam"],
@@ -277,7 +313,6 @@ async def analyze_v1(request: Request):
 
 @app.post("/fake-news", tags=["Compatibilité V1"], include_in_schema=False)
 async def fake_news_v1(request: Request):
-    """Redirige vers /scan pour compatibilité."""
     body = await request.json()
     contenu = body.get("contenu", "")
     if not contenu:
@@ -295,7 +330,6 @@ async def fake_news_v1(request: Request):
 # ─────────────────────────────────────────────
 
 def _detect_source(request: Request) -> str:
-    """Identifie la source de la requête depuis le user-agent."""
     user_agent = request.headers.get("user-agent", "").lower()
     if "telegram" in user_agent:
         return "bot"
@@ -305,10 +339,6 @@ def _detect_source(request: Request) -> str:
 
 
 def _detect_report_type(content: str) -> str:
-    """
-    Détecte automatiquement le type de signalement depuis le contenu.
-    Retourne une catégorie parmi les valeurs valides.
-    """
     content_lower = content.lower()
 
     if any(kw in content_lower for kw in ["mtn", "orange money", "wave", "moov", "mobile money", "momo"]):
@@ -326,7 +356,7 @@ def _detect_report_type(content: str) -> str:
 
 
 # ─────────────────────────────────────────────
-# FAVICON ET FICHIERS STATIQUES
+# FAVICON ET FICHIERS STATIQUES — EN DERNIER
 # ─────────────────────────────────────────────
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -342,60 +372,6 @@ else:
     async def root():
         return {"message": "CIAlert API V2.0", "docs": "/docs"}
 
-WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "cialert_whatsapp_2026")
-# Vérification webhook (GET)
-@app.get("/webhook/whatsapp")
-async def whatsapp_verify(
-    hub_mode: str = Query(None, alias="hub.mode"),
-    hub_challenge: str = Query(None, alias="hub.challenge"),
-    hub_verify_token: str = Query(None, alias="hub.verify_token")
-):
-    if hub_mode == "subscribe" and hub_verify_token == WHATSAPP_VERIFY_TOKEN:
-        return PlainTextResponse(hub_challenge)
-    return PlainTextResponse("Forbidden", status_code=403)
-
-# Réception messages (POST)
-@app.post("/webhook/whatsapp")
-async def whatsapp_webhook(request: Request):
-    data = await request.json()
-    try:
-        entry = data["entry"][0]["changes"][0]["value"]
-        message = entry["messages"][0]
-        sender = message["from"]
-        text = message.get("text", {}).get("body", "")
-
-        if not text:
-            return {"status": "ignored"}
-
-        # Réutilise la logique /scan existante
-        scan_result = await router.scan(text)
-        response_text = format_whatsapp_response(scan_result)
-        await send_whatsapp_message(sender, response_text)
-    except (KeyError, IndexError):
-        pass
-
-    return {"status": "ok"}
-
-def format_whatsapp_response(result: dict) -> str:
-    emoji = "🚨" if result.get("is_scam") else "✅"
-    label = result.get("confidence_label", "Confiance")
-    confidence = int(result.get("confidence", 0) * 100)
-    category = result.get("scam_category", "")
-    explanation = result.get("explanation", "")
-    advice = result.get("advice", "")
-
-    lines = [
-        f"{emoji} *{'ARNAQUE DÉTECTÉE' if result.get('is_scam') else 'Message sain'}*",
-        f"📊 {label} : {confidence}%",
-    ]
-    if category:
-        lines.append(f"🏷️ Catégorie : {category}")
-    if explanation:
-        lines.append(f"\n💬 {explanation}")
-    if advice:
-        lines.append(f"\n💡 {advice}")
-
-    return "\n".join(lines)
 
 # ─────────────────────────────────────────────
 # LANCEMENT LOCAL
