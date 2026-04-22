@@ -108,76 +108,32 @@ def _format_whatsapp_response(result: dict) -> str:
 # WEBHOOK WHATSAPP — DOIT ÊTRE AVANT StaticFiles
 # ─────────────────────────────────────────────
 
-@app.get("/webhook/whatsapp", tags=["WhatsApp"])
-async def whatsapp_verify(
+# Remplace tes deux décorateurs @app.get et @app.post par celui-ci :
+
+@app.api_route("/webhook/whatsapp", methods=["GET", "POST"], tags=["WhatsApp"])
+async def whatsapp_endpoint(
+    request: Request,
     hub_mode: str = Query(None, alias="hub.mode"),
     hub_challenge: str = Query(None, alias="hub.challenge"),
     hub_verify_token: str = Query(None, alias="hub.verify_token"),
 ):
-    if hub_mode == "subscribe" and hub_verify_token == WHATSAPP_VERIFY_TOKEN:
-        return PlainTextResponse(hub_challenge)
-    return PlainTextResponse("Forbidden", status_code=403)
+    # 1. Gestion du GET (Vérification de Meta)
+    if request.method == "GET":
+        if hub_mode == "subscribe" and hub_verify_token == WHATSAPP_VERIFY_TOKEN:
+            return PlainTextResponse(hub_challenge)
+        return PlainTextResponse("Forbidden", status_code=403)
 
-
-@app.post("/webhook/whatsapp", tags=["WhatsApp"])
-async def whatsapp_webhook(request: Request):
-    data = await request.json()
-    try:
-        entry = data["entry"][0]["changes"][0]["value"]
-        message = entry["messages"][0]
-        sender = message["from"]
-
-        text, media_id = extract_message_content(message)
-
-        # Message de type non supporté (ex: sticker, localisation)
-        if text is None and media_id is None:
-            await send_whatsapp_message(
-                sender,
-                "⚠️ Je ne peux analyser que du texte, des images ou des documents (PDF/TXT)."
-            )
-            return {"status": "unsupported_type"}
-
-        filename = None
-
-        # Cas média : télécharger puis envoyer à /scan
-        if media_id:
-            try:
-                file_data, mime_type, filename = await download_whatsapp_media(media_id)
-            except ValueError as e:
-                await send_whatsapp_message(sender, f"⚠️ {e}")
-                return {"status": "file_too_large"}
-            except Exception:
-                await send_whatsapp_message(
-                    sender,
-                    "⚠️ Impossible de télécharger le fichier. Réessaie."
-                )
-                return {"status": "download_error"}
-
-            # MIME non supporté par file_extractor
-            if mime_type not in ACCEPTED_MIME:
-                await send_whatsapp_message(
-                    sender,
-                    "⚠️ Format non supporté. Envoie une image (JPG/PNG) ou un document (PDF/TXT)."
-                )
-                return {"status": "unsupported_mime"}
-
-            scan_result = await run_scan(
-                text=text,
-                file_data=file_data,
-                file_content_type=mime_type,
-                filename=filename,
-                source="whatsapp",
-            )
-        else:
-            # Cas texte pur
-            scan_result = await run_scan(text=text, source="whatsapp")
-
-        if not scan_result.get("success"):
-            await send_whatsapp_message(
-                sender,
-                "⚠️ Analyse impossible. Vérifie le contenu et réessaie."
-            )
-            return {"status": "scan_error"}
+    # 2. Gestion du POST (Réception des messages)
+    if request.method == "POST":
+        data = await request.json()
+        try:
+            # Ton code actuel de traitement de message...
+            entry = data["entry"][0]["changes"][0]["value"]
+            # ... (suite du code existant)
+            return {"status": "ok"}
+        except Exception as e:
+            logger.error(f"Erreur Webhook: {e}")
+            return {"status": "error", "detail": str(e)}
 
         # Sauvegarder en base
         scan_id = save_scan(
