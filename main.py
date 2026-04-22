@@ -25,6 +25,7 @@ from database import (
 )
 from router import run_scan, register_scan_phones
 from response_builder import build_response, build_error_response
+from whatsapp_bot import send_whatsapp_message
 
 logger = logging.getLogger(__name__)
 
@@ -341,6 +342,60 @@ else:
     async def root():
         return {"message": "CIAlert API V2.0", "docs": "/docs"}
 
+WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "cialert_whatsapp_2026")
+# Vérification webhook (GET)
+@app.get("/webhook/whatsapp")
+async def whatsapp_verify(
+    hub_mode: str = Query(None, alias="hub.mode"),
+    hub_challenge: str = Query(None, alias="hub.challenge"),
+    hub_verify_token: str = Query(None, alias="hub.verify_token")
+):
+    if hub_mode == "subscribe" and hub_verify_token == WHATSAPP_VERIFY_TOKEN:
+        return PlainTextResponse(hub_challenge)
+    return PlainTextResponse("Forbidden", status_code=403)
+
+# Réception messages (POST)
+@app.post("/webhook/whatsapp")
+async def whatsapp_webhook(request: Request):
+    data = await request.json()
+    try:
+        entry = data["entry"][0]["changes"][0]["value"]
+        message = entry["messages"][0]
+        sender = message["from"]
+        text = message.get("text", {}).get("body", "")
+
+        if not text:
+            return {"status": "ignored"}
+
+        # Réutilise la logique /scan existante
+        scan_result = await router.scan(text)
+        response_text = format_whatsapp_response(scan_result)
+        await send_whatsapp_message(sender, response_text)
+    except (KeyError, IndexError):
+        pass
+
+    return {"status": "ok"}
+
+def format_whatsapp_response(result: dict) -> str:
+    emoji = "🚨" if result.get("is_scam") else "✅"
+    label = result.get("confidence_label", "Confiance")
+    confidence = int(result.get("confidence", 0) * 100)
+    category = result.get("scam_category", "")
+    explanation = result.get("explanation", "")
+    advice = result.get("advice", "")
+
+    lines = [
+        f"{emoji} *{'ARNAQUE DÉTECTÉE' if result.get('is_scam') else 'Message sain'}*",
+        f"📊 {label} : {confidence}%",
+    ]
+    if category:
+        lines.append(f"🏷️ Catégorie : {category}")
+    if explanation:
+        lines.append(f"\n💬 {explanation}")
+    if advice:
+        lines.append(f"\n💡 {advice}")
+
+    return "\n".join(lines)
 
 # ─────────────────────────────────────────────
 # LANCEMENT LOCAL
