@@ -133,6 +133,8 @@ sans prétendre vérifier les faits absolus. Tu es honnête sur les limites de t
 - Sois honnête : si le texte est trop court ou ambigu, dis-le dans "limite_analyse"
 - N'invente jamais de signaux qui ne sont pas dans le texte
 - Réponds UNIQUEMENT en JSON valide, sans markdown ni texte avant/après
+- Ta réponse doit commencer par { et se terminer par }. Zéro texte avant ou après.
+- Réponds UNIQUEMENT en JSON valide, sans markdown ni texte avant/après
 """
 
 
@@ -232,11 +234,11 @@ def analyser_fake_news(contenu: str, type_contenu: str = "texte") -> dict:
     try:
         raw = _call_ai(FAKE_NEWS_SYSTEM_PROMPT, user_prompt)
 
-        # Nettoyage JSON si le modèle ajoute des balises markdown
-        raw = re.sub(r'^```json\s*', '', raw)
-        raw = re.sub(r'\s*```$', '', raw)
-
-        resultat = json.loads(raw)
+        # Extraction robuste du JSON même si le modèle ajoute du texte
+        match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if not match:
+            raise json.JSONDecodeError("Aucun JSON trouvé", raw, 0)
+        resultat = json.loads(match.group(0))
         resultat["score_statique"] = pre_analyse["score_statique"]
         resultat["type_contenu"]   = type_contenu
 
