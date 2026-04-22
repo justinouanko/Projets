@@ -26,7 +26,7 @@ from database import (
 )
 from router import run_scan, register_scan_phones
 from response_builder import build_response, build_error_response
-from whatsapp_bot import send_whatsapp_message
+from whatsapp_bot import send_whatsapp_message, download_whatsapp_media, extract_message_content, ACCEPTED_MIME
 
 logger = logging.getLogger(__name__)
 
@@ -100,42 +100,86 @@ async def whatsapp_webhook(request: Request):
         entry = data["entry"][0]["changes"][0]["value"]
         message = entry["messages"][0]
         sender = message["from"]
-        text = message.get("text", {}).get("body", "")
 
-        if not text:
-            return {"status": "ignored"}
+        text, media_id = extract_message_content(message)
 
-        scan_result = await run_scan(text=text, source="whatsapp")
-        response_text = _format_whatsapp_response(build_response(scan_result))
+        # Message de type non supporté (ex: sticker, localisation)
+        if text is None and media_id is None:
+            await send_whatsapp_message(
+                sender,
+                "⚠️ Je ne peux analyser que du texte, des images ou des documents (PDF/TXT)."
+            )
+            return {"status": "unsupported_type"}
+
+        # Cas média : télécharger puis envoyer à /scan
+        if media_id:
+            try:
+                file_data, mime_type, filename = await download_whatsapp_media(media_id)
+            except ValueError as e:
+                await send_whatsapp_message(sender, f"⚠️ {e}")
+                return {"status": "file_too_large"}
+            except Exception:
+                await send_whatsapp_message(
+                    sender,
+                    "⚠️ Impossible de télécharger le fichier. Réessaie."
+                )
+                return {"status": "download_error"}
+
+            # MIME non supporté par file_extractor
+            if mime_type not in ACCEPTED_MIME:
+                await send_whatsapp_message(
+                    sender,
+                    "⚠️ Format non supporté. Envoie une image (JPG/PNG) ou un document (PDF/TXT)."
+                )
+                return {"status": "unsupported_mime"}
+
+            scan_result = await run_scan(
+                text=text,           # caption éventuelle
+                file_data=file_data,
+                file_content_type=mime_type,
+                filename=filename,
+                source="whatsapp",
+            )
+        else:
+            # Cas texte pur
+            scan_result = await run_scan(text=text, source="whatsapp")
+
+        if not scan_result.get("success"):
+            await send_whatsapp_message(
+                sender,
+                "⚠️ Analyse impossible. Vérifie le contenu et réessaie."
+            )
+            return {"status": "scan_error"}
+
+        # Sauvegarder en base
+        scan_id = save_scan(
+            raw_input=scan_result["raw_input"],
+            input_type=scan_result["input_type"],
+            is_scam=scan_result["is_scam"],
+            confidence=scan_result["confidence"],
+            risk_level=scan_result["risk_level"],
+            scam_category=scan_result.get("scam_category"),
+            rule_flags=scan_result.get("rule_flags", []),
+            has_fake_news=scan_result.get("has_fake_news", False),
+            fake_news_verdict=scan_result.get("fake_news_verdict"),
+            fake_news_score=scan_result.get("fake_news_score", 0),
+            phone_flagged=scan_result.get("phone_flagged", False),
+            ai_explanation=scan_result.get("ai_explanation"),
+            ai_provider=scan_result.get("ai_provider"),
+            processing_ms=scan_result.get("processing_ms"),
+            has_file=scan_result.get("has_file", False),
+            filename=filename if media_id else None,
+            source="whatsapp",
+        )
+        register_scan_phones(scan_result, scan_id)
+
+        response_text = _format_whatsapp_response(build_response(scan_result, scan_id=scan_id))
         await send_whatsapp_message(sender, response_text)
+
     except (KeyError, IndexError):
         pass
 
     return {"status": "ok"}
-
-
-def _format_whatsapp_response(result: dict) -> str:
-    emoji = "🚨" if result.get("is_scam") else "✅"
-    label = result.get("confidence_label", "Confiance")
-    confidence = int(result.get("confidence", 0) * 100)
-    category = result.get("scam_category", "")
-    explanation = result.get("explanation", "")
-    advice = result.get("advice", "")
-
-    lines = [
-        f"{emoji} *{'ARNAQUE DÉTECTÉE' if result.get('is_scam') else 'Message sain'}*",
-        f"📊 {label} : {confidence}%",
-    ]
-    if category:
-        lines.append(f"🏷️ Catégorie : {category}")
-    if explanation:
-        lines.append(f"\n💬 {explanation}")
-    if advice:
-        lines.append(f"\n💡 {advice}")
-
-    return "\n".join(lines)
-
-
 # ─────────────────────────────────────────────
 # ENDPOINT PRINCIPAL : POST /scan
 # ─────────────────────────────────────────────
