@@ -79,6 +79,32 @@ class FeedbackRequest(BaseModel):
 
 
 # ─────────────────────────────────────────────
+# UTILITAIRE WHATSAPP — défini avant le webhook
+# ─────────────────────────────────────────────
+
+def _format_whatsapp_response(result: dict) -> str:
+    emoji = "🚨" if result.get("is_scam") else "✅"
+    label = result.get("confidence_label", "Confiance")
+    confidence = int(result.get("confidence", 0) * 100)
+    category = result.get("scam_category", "")
+    explanation = result.get("explanation", "")
+    advice = result.get("advice", "")
+
+    lines = [
+        f"{emoji} *{'ARNAQUE DÉTECTÉE' if result.get('is_scam') else 'Message sain'}*",
+        f"📊 {label} : {confidence}%",
+    ]
+    if category:
+        lines.append(f"🏷️ Catégorie : {category}")
+    if explanation:
+        lines.append(f"\n💬 {explanation}")
+    if advice:
+        lines.append(f"\n💡 {advice}")
+
+    return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────
 # WEBHOOK WHATSAPP — DOIT ÊTRE AVANT StaticFiles
 # ─────────────────────────────────────────────
 
@@ -111,6 +137,8 @@ async def whatsapp_webhook(request: Request):
             )
             return {"status": "unsupported_type"}
 
+        filename = None
+
         # Cas média : télécharger puis envoyer à /scan
         if media_id:
             try:
@@ -134,7 +162,7 @@ async def whatsapp_webhook(request: Request):
                 return {"status": "unsupported_mime"}
 
             scan_result = await run_scan(
-                text=text,           # caption éventuelle
+                text=text,
                 file_data=file_data,
                 file_content_type=mime_type,
                 filename=filename,
@@ -181,26 +209,6 @@ async def whatsapp_webhook(request: Request):
 
     return {"status": "ok"}
 
-def _format_whatsapp_response(result: dict) -> str:
-    emoji = "🚨" if result.get("is_scam") else "✅"
-    label = result.get("confidence_label", "Confiance")
-    confidence = int(result.get("confidence", 0) * 100)
-    category = result.get("scam_category", "")
-    explanation = result.get("explanation", "")
-    advice = result.get("advice", "")
-
-    lines = [
-        f"{emoji} *{'ARNAQUE DÉTECTÉE' if result.get('is_scam') else 'Message sain'}*",
-        f"📊 {label} : {confidence}%",
-    ]
-    if category:
-        lines.append(f"🏷️ Catégorie : {category}")
-    if explanation:
-        lines.append(f"\n💬 {explanation}")
-    if advice:
-        lines.append(f"\n💡 {advice}")
-
-    return "\n".join(lines)
 
 # ─────────────────────────────────────────────
 # ENDPOINT PRINCIPAL : POST /scan
@@ -420,6 +428,7 @@ def _detect_report_type(content: str) -> str:
 
     return "autre"
 
+
 @app.get("/privacy", include_in_schema=False)
 async def privacy():
     html = """
@@ -441,6 +450,7 @@ async def privacy():
     """
     from fastapi.responses import HTMLResponse
     return HTMLResponse(html)
+
 
 # ─────────────────────────────────────────────
 # FAVICON ET FICHIERS STATIQUES — EN DERNIER
