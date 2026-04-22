@@ -108,63 +108,91 @@ def _format_whatsapp_response(result: dict) -> str:
 # WEBHOOK WHATSAPP — DOIT ÊTRE AVANT StaticFiles
 # ─────────────────────────────────────────────
 
-# Remplace tes deux décorateurs @app.get et @app.post par celui-ci :
-
 @app.api_route("/webhook/whatsapp", methods=["GET", "POST"], tags=["WhatsApp"])
-async def whatsapp_endpoint(
+async def whatsapp_webhook(
     request: Request,
     hub_mode: str = Query(None, alias="hub.mode"),
     hub_challenge: str = Query(None, alias="hub.challenge"),
     hub_verify_token: str = Query(None, alias="hub.verify_token"),
 ):
-    # 1. Gestion du GET (Vérification de Meta)
+    # 1. GESTION DU GET (Vérification Meta)
     if request.method == "GET":
         if hub_mode == "subscribe" and hub_verify_token == WHATSAPP_VERIFY_TOKEN:
             return PlainTextResponse(hub_challenge)
         return PlainTextResponse("Forbidden", status_code=403)
 
-    # 2. Gestion du POST (Réception des messages)
+    # 2. GESTION DU POST (Messages entrants)
     if request.method == "POST":
-        data = await request.json()
         try:
-            # Ton code actuel de traitement de message...
+            data = await request.json()
             entry = data["entry"][0]["changes"][0]["value"]
-            # ... (suite du code existant)
-            return {"status": "ok"}
+            
+            if "messages" not in entry:
+                return {"status": "no_messages"}
+
+            message = entry["messages"][0]
+            sender = message["from"]
+            text, media_id = extract_message_content(message)
+
+            if text is None and media_id is None:
+                await send_whatsapp_message(sender, "⚠️ Format non supporté (Texte/Image/PDF uniquement).")
+                return {"status": "unsupported_type"}
+
+            filename = None
+            mime_type = None
+            file_data = None
+
+            # Traitement Média
+            if media_id:
+                try:
+                    file_data, mime_type, filename = await download_whatsapp_media(media_id)
+                    if mime_type not in ACCEPTED_MIME:
+                        await send_whatsapp_message(sender, "⚠️ Format de fichier non supporté.")
+                        return {"status": "unsupported_mime"}
+                except Exception as e:
+                    logger.error(f"Erreur téléchargement média: {e}")
+                    await send_whatsapp_message(sender, "⚠️ Erreur lors du téléchargement du fichier.")
+                    return {"status": "download_error"}
+
+            # Lancement du Scan
+            scan_result = await run_scan(
+                text=text,
+                file_data=file_data,
+                file_content_type=mime_type,
+                filename=filename,
+                source="whatsapp",
+            )
+
+            if not scan_result.get("success"):
+                await send_whatsapp_message(sender, "⚠️ Analyse impossible pour le moment.")
+                return {"status": "scan_error"}
+
+            # Sauvegarde en base de données
+            scan_id = save_scan(
+                raw_input=scan_result["raw_input"],
+                input_type=scan_result["input_type"],
+                is_scam=scan_result["is_scam"],
+                confidence=scan_result["confidence"],
+                risk_level=scan_result["risk_level"],
+                scam_category=scan_result.get("scam_category"),
+                phone_flagged=scan_result.get("phone_flagged", False),
+                ai_explanation=scan_result.get("ai_explanation"),
+                ai_provider=scan_result.get("ai_provider"),
+                source="whatsapp",
+            )
+            
+            register_scan_phones(scan_result, scan_id)
+
+            # Envoi de la réponse formatée
+            response_text = _format_whatsapp_response(build_response(scan_result, scan_id=scan_id))
+            await send_whatsapp_message(sender, response_text)
+
+        except (KeyError, IndexError) as e:
+            logger.warning(f"Structure JSON WhatsApp invalide: {e}")
         except Exception as e:
-            logger.error(f"Erreur Webhook: {e}")
-            return {"status": "error", "detail": str(e)}
-
-        # Sauvegarder en base
-        scan_id = save_scan(
-            raw_input=scan_result["raw_input"],
-            input_type=scan_result["input_type"],
-            is_scam=scan_result["is_scam"],
-            confidence=scan_result["confidence"],
-            risk_level=scan_result["risk_level"],
-            scam_category=scan_result.get("scam_category"),
-            rule_flags=scan_result.get("rule_flags", []),
-            has_fake_news=scan_result.get("has_fake_news", False),
-            fake_news_verdict=scan_result.get("fake_news_verdict"),
-            fake_news_score=scan_result.get("fake_news_score", 0),
-            phone_flagged=scan_result.get("phone_flagged", False),
-            ai_explanation=scan_result.get("ai_explanation"),
-            ai_provider=scan_result.get("ai_provider"),
-            processing_ms=scan_result.get("processing_ms"),
-            has_file=scan_result.get("has_file", False),
-            filename=filename if media_id else None,
-            source="whatsapp",
-        )
-        register_scan_phones(scan_result, scan_id)
-
-        response_text = _format_whatsapp_response(build_response(scan_result, scan_id=scan_id))
-        await send_whatsapp_message(sender, response_text)
-
-    except (KeyError, IndexError):
-        pass
+            logger.error(f"Erreur critique Webhook: {e}")
 
     return {"status": "ok"}
-
 
 # ─────────────────────────────────────────────
 # ENDPOINT PRINCIPAL : POST /scan
