@@ -17,6 +17,10 @@
       --red-soft:    #FEE2E2;
       --yellow:      #F5A623;
       --yellow-soft: #FEF3C7;
+      --whatsapp:    #25D366;
+      --whatsapp-soft: rgba(37,211,102,0.12);
+      --telegram:    #229ED9;
+      --telegram-soft: rgba(34,158,217,0.12);
       --font-head:   'Syne', sans-serif;
       --font-body:   'DM Sans', sans-serif;
       --radius-sm:   8px;
@@ -40,7 +44,6 @@
       --nav-bg:        rgba(255,255,255,0.95);
     }
 
-    /* Fond dark sobre — #111110 comme convenu */
     [data-theme="dark"] {
       --bg:            #111110;
       --bg-alt:        #1A1917;
@@ -145,7 +148,41 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
-    .hero p { color: var(--text-dim); font-size: 1rem; max-width: 520px; margin: 0 auto; }
+    .hero p { color: var(--text-dim); font-size: 1rem; max-width: 520px; margin: 0 auto 1.5rem; }
+
+    /* ── BOTS BANNER ────────────────────────────────────────────────── */
+    .bots-banner {
+      display: flex; align-items: center; justify-content: center;
+      gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0;
+    }
+    .bots-banner-label {
+      font-size: 0.78rem; font-weight: 500; color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .btn-bot {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      font-family: var(--font-body); font-size: 0.82rem; font-weight: 600;
+      padding: 0.5rem 1.1rem; border-radius: 99px; border: none;
+      cursor: pointer; text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+      white-space: nowrap;
+    }
+    .btn-bot:hover { transform: translateY(-2px); }
+    .btn-bot:active { transform: translateY(0); }
+
+    .btn-bot-whatsapp {
+      background: var(--whatsapp); color: #fff;
+      box-shadow: 0 2px 12px rgba(37,211,102,0.3);
+    }
+    .btn-bot-whatsapp:hover { box-shadow: 0 6px 20px rgba(37,211,102,0.45); }
+
+    .btn-bot-telegram {
+      background: var(--telegram); color: #fff;
+      box-shadow: 0 2px 12px rgba(34,158,217,0.3);
+    }
+    .btn-bot-telegram:hover { box-shadow: 0 6px 20px rgba(34,158,217,0.45); }
+
+    .btn-bot svg { width: 16px; height: 16px; flex-shrink: 0; }
 
     /* ── SCAN BOX ───────────────────────────────────────────────────── */
     .scan-box {
@@ -448,9 +485,11 @@
     }
     .footer-brand { font-family: var(--font-head); font-weight: 800; font-size: 1.1rem; color: var(--text); letter-spacing: -0.02em; }
     .footer-brand span { color: var(--orange); }
-    .footer-links { display: flex; gap: 1.5rem; }
-    .footer-links a { font-size: 0.82rem; color: var(--text-muted); text-decoration: none; transition: color var(--transition); }
+    .footer-links { display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap; }
+    .footer-links a { font-size: 0.82rem; color: var(--text-muted); text-decoration: none; transition: color var(--transition); display: flex; align-items: center; gap: 0.35rem; }
     .footer-links a:hover { color: var(--orange); }
+    .footer-links a.footer-whatsapp:hover { color: var(--whatsapp); }
+    .footer-links a.footer-telegram:hover { color: var(--telegram); }
     .footer-copy { font-size: 0.75rem; color: var(--text-muted); }
 
     /* ── UTILITAIRES ────────────────────────────────────────────────── */
@@ -514,10 +553,10 @@
     <a href="#scan-anchor">Analyser</a>
     <a href="#report-anchor">Signaler</a>
     <a href="#stats-anchor">Statistiques</a>
+    <a href="https://wa.me/2250565366029" target="_blank">WhatsApp</a>
     <a href="https://t.me/my_cialert_bot" target="_blank">Telegram</a>
   </div>
 
-  <!-- Pas de "En ligne", pas de bouton API — toggle thème uniquement -->
   <div class="nav-right">
     <label class="theme-toggle" title="Changer de thème">
       <input type="checkbox" id="themeToggle" onchange="toggleTheme(this)" />
@@ -537,6 +576,25 @@
     </div>
     <h1>Protège-toi des<br><em>arnaques digitales et des Fake News</em></h1>
     <p>Collez un SMS, une URL, un numéro ou un texte suspect. CIAlert analyse en quelques secondes.</p>
+
+    <!-- BOTS BANNER -->
+    <div class="bots-banner">
+      <span class="bots-banner-label">Aussi disponible sur</span>
+      <a class="btn-bot btn-bot-whatsapp" href="https://wa.me/2250565366029" target="_blank" rel="noopener">
+        <!-- WhatsApp icon -->
+        <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+        </svg>
+        WhatsApp
+      </a>
+      <a class="btn-bot btn-bot-telegram" href="https://t.me/my_cialert_bot" target="_blank" rel="noopener">
+        <!-- Telegram icon -->
+        <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+        </svg>
+        Telegram
+      </a>
+    </div>
   </div>
 
   <div class="scan-box" id="scan-anchor">
@@ -587,7 +645,6 @@
       </div>
       <div class="result-meta">
         <div class="meta-item" id="metaConfItem">
-          <!-- Le label change dynamiquement selon le verdict -->
           <div class="meta-label" id="metaConfLabel">Confiance</div>
           <div class="meta-value" id="metaConf">—</div>
           <div class="conf-bar-wrap"><div class="conf-bar" id="confBar"></div></div>
@@ -712,7 +769,14 @@
   <div class="footer-brand"><span>CI</span>Alert</div>
   <div class="footer-links">
     <a href="https://github.com/justinouanko/cialert" target="_blank">GitHub</a>
-    <a href="https://t.me/my_cialert_bot" target="_blank">Telegram</a>
+    <a href="https://wa.me/2250565366029" target="_blank" class="footer-whatsapp">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      WhatsApp
+    </a>
+    <a href="https://t.me/my_cialert_bot" target="_blank" class="footer-telegram">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+      Telegram
+    </a>
     <a href="/docs" target="_blank">API</a>
   </div>
   <div class="footer-copy">Abidjan, Côte d'Ivoire 🇨🇮</div>
@@ -847,8 +911,6 @@
     if (d.file_info)
       badges.innerHTML += `<span class="result-badge">📄 ${escapeHTML(d.file_info.filename)}</span>`;
 
-    // ── Label de confiance conditionnel (Option A) ──────────────────
-    // "Probabilité d'arnaque" si arnaque, "Fiabilité" si sain
     const confLabel = d.confidence_label ||
       (isScam ? 'Probabilit\u00e9 d\u2019arnaque' : 'Fiabilit\u00e9');
     document.getElementById('metaConfLabel').textContent = confLabel;
