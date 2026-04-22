@@ -354,6 +354,27 @@ def _detect_report_type(content: str) -> str:
 
     return "autre"
 
+@app.get("/privacy", include_in_schema=False)
+async def privacy():
+    html = """
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head><meta charset="UTF-8"><title>Politique de confidentialité — CIAlert</title>
+    <style>body{font-family:sans-serif;max-width:800px;margin:40px auto;padding:0 20px;line-height:1.6}</style>
+    </head>
+    <body>
+    <h1>Politique de confidentialité — CIAlert</h1>
+    <p><strong>Dernière mise à jour :</strong> Avril 2026</p>
+    <h2>Données collectées</h2>
+    <p>CIAlert analyse les textes, liens et fichiers soumis par les utilisateurs dans le but de détecter des arnaques digitales. Ces données sont conservées de manière anonyme pour améliorer la détection.</p>
+    <h2>Utilisation des données</h2>
+    <p>Les données ne sont jamais vendues ni partagées avec des tiers. Elles servent uniquement à améliorer la plateforme CIAlert.</p>
+    <h2>Contact</h2>
+    <p>Pour toute question : <a href="https://github.com/justinouanko/cialert">github.com/justinouanko/cialert</a></p>
+    </body></html>
+    """
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(html)
 
 # ─────────────────────────────────────────────
 # FAVICON ET FICHIERS STATIQUES — EN DERNIER
