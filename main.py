@@ -180,6 +180,28 @@ async def whatsapp_webhook(request: Request):
         pass
 
     return {"status": "ok"}
+
+def _format_whatsapp_response(result: dict) -> str:
+    emoji = "🚨" if result.get("is_scam") else "✅"
+    label = result.get("confidence_label", "Confiance")
+    confidence = int(result.get("confidence", 0) * 100)
+    category = result.get("scam_category", "")
+    explanation = result.get("explanation", "")
+    advice = result.get("advice", "")
+
+    lines = [
+        f"{emoji} *{'ARNAQUE DÉTECTÉE' if result.get('is_scam') else 'Message sain'}*",
+        f"📊 {label} : {confidence}%",
+    ]
+    if category:
+        lines.append(f"🏷️ Catégorie : {category}")
+    if explanation:
+        lines.append(f"\n💬 {explanation}")
+    if advice:
+        lines.append(f"\n💡 {advice}")
+
+    return "\n".join(lines)
+
 # ─────────────────────────────────────────────
 # ENDPOINT PRINCIPAL : POST /scan
 # ─────────────────────────────────────────────
