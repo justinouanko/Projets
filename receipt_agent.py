@@ -140,6 +140,15 @@ Ton rôle : détecter si ce reçu est authentique ou falsifié.
   - MTN MoMo : commence par TXN ou MP suivi de chiffres
   - Orange Money : format alphanumérique court
 
+### Identifiants spécifiques à Orange Money
+- Format : Alphanumérique long avec des points (ex: PP260419.2224.C96593). 
+- Règle : La présence de points dans la référence est NORMALE et ne doit pas être considérée comme un signe de falsification.
+
+### Consigne de Neutralité (CRITIQUE)
+- Ne suppose jamais une intention d'arnaque si elle n'est pas écrite explicitement (ex: "payez pour recevoir").
+- Un reçu avec un format standard Orange/Wave est considéré AUTHENTIQUE même si l'OCR est imparfait.
+- Si le reçu semble vrai, réponds est_faux_recu: false.
+
 ### Numéros de téléphone
 - Numéro bénéficiaire suspect (déjà signalé ou format invalide)
 - Numéro masqué partiellement de façon inhabituelle
@@ -222,6 +231,8 @@ def _call_ai(fields: dict, raw_text: str) -> dict:
 # ─────────────────────────────────────────────
 
 def analyser_recu(text: str) -> dict:
+    # Nettoyage des balises qui perturbent l'IA
+    text = re.sub(r"\", "", text)
     """
     Analyse un texte OCR pour détecter un faux reçu Mobile Money.
 

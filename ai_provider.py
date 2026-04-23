@@ -99,7 +99,7 @@ class GroqProvider(AIProvider):
                         {"role": "system", "content": SYSTEM_PROMPT},
                         {"role": "user",   "content": _build_user_prompt(text, flags, rule_score)},
                     ],
-                    "temperature": 0.1,
+                    "temperature": 0.0,
                     "max_tokens":  300,
                 },
             )
