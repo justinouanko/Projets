@@ -15,7 +15,9 @@ from agent import CIAlertAgent
 from fake_news_agent import analyser_fake_news
 from phone_registry import check_phones_in_text, register_phone_from_text
 from file_extractor import extract_text
-
+from receipt_agent import analyser_recu
+import logging
+logger = logging.getLogger(__name__)
 # Instance partagée de l'agent — initialisée une seule fois au démarrage
 _agent = CIAlertAgent()
 
@@ -116,7 +118,16 @@ async def run_scan(
                 "processing_ms": int((time.time() - start) * 1000),
             }
 
-    # ── Étape 2 : vérification minimale ───────────────────────────────────
+    # ── Étape 2 : analyse faux reçu si fichier image/PDF ──────────────────
+    receipt_result = None
+    if has_file and file_content_type and file_content_type.startswith(("image/", "application/pdf")):
+        try:
+            receipt_result = await asyncio.to_thread(analyser_recu, text)
+        except Exception as e:
+            logger.error(f"receipt_agent erreur : {e}")
+            receipt_result = None
+
+    # ── Étape 2b : vérification minimale ───────────────────────────────────
     if not text or not text.strip():
         return {
             "success": False,
@@ -196,6 +207,13 @@ async def run_scan(
 
         # Infos fichier
         "file_info": extracted_file_info,
+        # Résultat faux reçu
+        "receipt_result":   receipt_result,
+        "is_fake_receipt":  bool(
+            receipt_result
+            and receipt_result.get("est_recu")
+            and receipt_result.get("est_faux_recu")
+        ),
 
         "processing_ms": processing_ms,
     }

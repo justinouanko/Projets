@@ -284,6 +284,8 @@
     .result-badge.fake-news-warn { background: var(--red-soft);    color: var(--red);    border-color: rgba(226,75,74,0.3); }
     [data-theme="dark"] .result-badge.phone-warn     { background: rgba(245,166,35,0.12); }
     [data-theme="dark"] .result-badge.fake-news-warn { background: rgba(226,75,74,0.12); }
+    .result-badge.receipt-warn { background: var(--yellow-soft); color: #92400e; border-color: rgba(245,166,35,0.3); }
+    [data-theme="dark"] .result-badge.receipt-warn { background: rgba(245,166,35,0.12); color: var(--yellow); }
 
     .result-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
     .meta-item { padding: 1.25rem 1.75rem; border-right: 1px solid var(--border); }
@@ -908,6 +910,8 @@
       badges.innerHTML += `<span class="result-badge phone-warn">⚠️ ${escapeHTML(d.phone_warning)}</span>`;
     if (d.fake_news && d.fake_news.verdict !== 'FIABLE')
       badges.innerHTML += `<span class="result-badge fake-news-warn">🔍 ${escapeHTML(d.fake_news.message || 'Contenu suspect')}</span>`;
+    if (d.receipt_warning && d.receipt_warning.is_fake)
+      badges.innerHTML += `<span class="result-badge receipt-warn">🧾 Faux reçu ${escapeHTML(d.receipt_warning.operateur)} détecté</span>`;
     if (d.file_info)
       badges.innerHTML += `<span class="result-badge">📄 ${escapeHTML(d.file_info.filename)}</span>`;
 

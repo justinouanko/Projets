@@ -114,6 +114,8 @@ def build_response(scan_result: dict, scan_id: Optional[int] = None) -> dict:
     phone_flagged     = scan_result.get("phone_flagged", False)
     ai_explanation    = scan_result.get("ai_explanation", "")
     file_info         = scan_result.get("file_info")
+    is_fake_receipt   = scan_result.get("is_fake_receipt", False)
+    receipt_result    = scan_result.get("receipt_result")
     processing_ms     = scan_result.get("processing_ms", 0)
 
     # Label conditionnel — Option A
@@ -150,6 +152,21 @@ def build_response(scan_result: dict, scan_id: Optional[int] = None) -> dict:
             "message": FAKE_NEWS_MESSAGES.get(fake_news_verdict, ""),
         }
 
+# ── Avertissement faux reçu ───────────────────────────────────────────
+    receipt_warning = None
+    if is_fake_receipt and receipt_result:
+        operateur = receipt_result.get("operateur_detecte", "Mobile Money")
+        resume    = receipt_result.get("resume", "")
+        receipt_warning = {
+            "is_fake":   True,
+            "operateur": operateur,
+            "resume":    resume,
+            "recommandation": receipt_result.get(
+                "recommandation",
+                "Vérifiez ce reçu directement auprès de l'opérateur."
+            ),
+        }
+
     # ── Avertissement numéro signalé ──────────────────────────────────────
     phone_warning = None
     if phone_flagged:
@@ -170,6 +187,7 @@ def build_response(scan_result: dict, scan_id: Optional[int] = None) -> dict:
         "phone_warning":    phone_warning,
         "file_info":        file_info,
         "processing_ms":    processing_ms,
+        "receipt_warning": receipt_warning,
     }
 
     return {k: v for k, v in response.items() if v is not None}
