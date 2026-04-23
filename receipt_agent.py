@@ -227,33 +227,24 @@ def _call_ai(fields: dict, raw_text: str) -> dict:
 
 
 # ─────────────────────────────────────────────
-# FONCTION PRINCIPALE
+# FONCTION PRINCIPALE (CORRIGÉE)
 # ─────────────────────────────────────────────
 
 def analyser_recu(text: str) -> dict:
     """
     Analyse un texte OCR pour détecter un faux reçu Mobile Money.
     """
-    # Nettoyage correct des balises et des guillemets
-    if text:
-        # Supprime les balises de type 
-        text = re.sub(r"\", "", text)
-        # Supprime les guillemets doubles qui viennent souvent des exports PDF
-        text = text.replace('"', '')
-
-    if not text or len(text.strip()) < 30:
+    if not text:
         return {"est_recu": False}
-    """
-    Analyse un texte OCR pour détecter un faux reçu Mobile Money.
 
-    Args:
-        text: Texte extrait par OCR d'une image ou PDF
+    # --- NETTOYAGE CRITIQUE ---
+    # Supprime les balises du PDF
+    text = re.sub(r"\", "", text)
+    # Supprime les guillemets doubles proprement
+    text = text.replace('"', '').strip()
 
-    Returns:
-        dict avec est_faux_recu, confiance, signaux, résumé
-        ou {"est_recu": False} si le texte n'est pas un reçu
-    """
-    if not text or len(text.strip()) < 30:
+    # Vérification de la longueur minimale après nettoyage
+    if len(text) < 30:
         return {"est_recu": False}
 
     # Vérification rapide : est-ce que ça ressemble à un reçu ?
@@ -263,6 +254,7 @@ def analyser_recu(text: str) -> dict:
     fields = _extract_receipt_fields(text)
 
     try:
+        # On passe le texte nettoyé à l'IA
         result = _call_ai(fields, text)
         result["est_recu"] = True
         result["champs_extraits"] = fields
@@ -270,7 +262,6 @@ def analyser_recu(text: str) -> dict:
 
     except Exception as e:
         logger.error(f"receipt_agent : erreur — {e}")
-        # Fallback sur l'analyse statique uniquement
         has_signals = len(fields["signaux_falsification"]) > 0
         return {
             "est_recu":            True,
@@ -278,7 +269,7 @@ def analyser_recu(text: str) -> dict:
             "confiance":           0.5 if has_signals else 0.2,
             "operateur_detecte":   "Inconnu",
             "signaux_falsification": [
-                {"type": "autre", "description": s}
+                {"type": "autre", "description": s} 
                 for s in fields["signaux_falsification"]
             ],
             "elements_manquants":  [],
