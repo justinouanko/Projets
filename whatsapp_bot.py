@@ -155,136 +155,123 @@ def extract_message_content(message: dict) -> tuple[str | None, str | None]:
 
 def _init_sessions_table():
     """Crée la table sessions WhatsApp si elle n'existe pas."""
-    conn = get_connection()
-    try:
-        with conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS whatsapp_sessions (
-                    sender      TEXT PRIMARY KEY,
-                    etape       INTEGER NOT NULL DEFAULT 0,
-                    content     TEXT,
-                    platform    TEXT,
-                    amount      REAL DEFAULT 0,
-                    description TEXT,
-                    is_new_user INTEGER DEFAULT 1,
-                    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-    finally:
-        conn.close()
+    is_pg = "postgresql" in os.getenv("DATABASE_URL", "")
+    if is_pg:
+        sql = """
+            CREATE TABLE IF NOT EXISTS whatsapp_sessions (
+                sender      TEXT PRIMARY KEY,
+                etape       INTEGER NOT NULL DEFAULT 0,
+                content     TEXT,
+                platform    TEXT,
+                amount      REAL DEFAULT 0,
+                description TEXT,
+                is_new_user INTEGER DEFAULT 1,
+                updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """
+    else:
+        sql = """
+            CREATE TABLE IF NOT EXISTS whatsapp_sessions (
+                sender      TEXT PRIMARY KEY,
+                etape       INTEGER NOT NULL DEFAULT 0,
+                content     TEXT,
+                platform    TEXT,
+                amount      REAL DEFAULT 0,
+                description TEXT,
+                is_new_user INTEGER DEFAULT 1,
+                updated_at  DATETIME DEFAULT (datetime('now'))
+            )
+        """
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute(sql)
+
 
 def get_session(sender: str) -> dict | None:
     """Retourne la session active d'un sender, ou None."""
-    conn = get_connection()
-    try:
-        row = conn.execute(
-            "SELECT * FROM whatsapp_sessions WHERE sender = ?", (sender,)
-        ).fetchone() if hasattr(conn, 'execute') else None
-
-        # PostgreSQL
+    is_pg = "postgresql" in os.getenv("DATABASE_URL", "")
+    ph = "%s" if is_pg else "?"
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute(f"SELECT * FROM whatsapp_sessions WHERE sender = {ph}", (sender,))
+        row = cur.fetchone()
         if row is None:
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM whatsapp_sessions WHERE sender = %s", (sender,))
-            row = cur.fetchone()
-            if row:
-                cols = [d[0] for d in cur.description]
-                return dict(zip(cols, row))
             return None
+        cols = [d[0] for d in cur.description]
+        return dict(zip(cols, row))
 
-        # SQLite
-        if row:
-            return dict(row)
-        return None
-    finally:
-        conn.close()
 
 def set_session(sender: str, etape: int, data: dict = {}):
     """Crée ou met à jour une session."""
-    conn = get_connection()
-    try:
-        with conn:
-            # Détecter PostgreSQL vs SQLite
-            is_pg = "postgresql" in os.getenv("DATABASE_URL", "")
-            if is_pg:
-                conn.execute("""
-                    INSERT INTO whatsapp_sessions (sender, etape, content, platform, amount, description, is_new_user)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (sender) DO UPDATE SET
-                        etape = EXCLUDED.etape,
-                        content = EXCLUDED.content,
-                        platform = EXCLUDED.platform,
-                        amount = EXCLUDED.amount,
-                        description = EXCLUDED.description,
-                        updated_at = CURRENT_TIMESTAMP
-                """, (
-                    sender, etape,
-                    data.get("content"), data.get("platform"),
-                    data.get("amount", 0), data.get("description"),
-                    data.get("is_new_user", 0),
-                ))
-            else:
-                conn.execute("""
-                    INSERT OR REPLACE INTO whatsapp_sessions
-                        (sender, etape, content, platform, amount, description, is_new_user)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    sender, etape,
-                    data.get("content"), data.get("platform"),
-                    data.get("amount", 0), data.get("description"),
-                    data.get("is_new_user", 0),
-                ))
-    finally:
-        conn.close()
+    is_pg = "postgresql" in os.getenv("DATABASE_URL", "")
+    with get_connection() as conn:
+        cur = conn.cursor()
+        if is_pg:
+            cur.execute("""
+                INSERT INTO whatsapp_sessions (sender, etape, content, platform, amount, description, is_new_user)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (sender) DO UPDATE SET
+                    etape = EXCLUDED.etape,
+                    content = EXCLUDED.content,
+                    platform = EXCLUDED.platform,
+                    amount = EXCLUDED.amount,
+                    description = EXCLUDED.description,
+                    updated_at = CURRENT_TIMESTAMP
+            """, (
+                sender, etape,
+                data.get("content"), data.get("platform"),
+                data.get("amount", 0), data.get("description"),
+                data.get("is_new_user", 0),
+            ))
+        else:
+            cur.execute("""
+                INSERT OR REPLACE INTO whatsapp_sessions
+                    (sender, etape, content, platform, amount, description, is_new_user)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                sender, etape,
+                data.get("content"), data.get("platform"),
+                data.get("amount", 0), data.get("description"),
+                data.get("is_new_user", 0),
+            ))
+
 
 def delete_session(sender: str):
     """Supprime la session d'un sender."""
-    conn = get_connection()
-    try:
-        with conn:
-            is_pg = "postgresql" in os.getenv("DATABASE_URL", "")
-            if is_pg:
-                conn.execute("DELETE FROM whatsapp_sessions WHERE sender = %s", (sender,))
-            else:
-                conn.execute("DELETE FROM whatsapp_sessions WHERE sender = ?", (sender,))
-    finally:
-        conn.close()
+    is_pg = "postgresql" in os.getenv("DATABASE_URL", "")
+    ph = "%s" if is_pg else "?"
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute(f"DELETE FROM whatsapp_sessions WHERE sender = {ph}", (sender,))
+
 
 def is_new_user(sender: str) -> bool:
     """Retourne True si c'est la première fois que ce sender écrit."""
-    conn = get_connection()
-    try:
-        is_pg = "postgresql" in os.getenv("DATABASE_URL", "")
-        if is_pg:
-            cur = conn.cursor()
-            cur.execute("SELECT is_new_user FROM whatsapp_sessions WHERE sender = %s", (sender,))
-            row = cur.fetchone()
-        else:
-            row = conn.execute(
-                "SELECT is_new_user FROM whatsapp_sessions WHERE sender = ?", (sender,)
-            ).fetchone()
+    is_pg = "postgresql" in os.getenv("DATABASE_URL", "")
+    ph = "%s" if is_pg else "?"
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute(f"SELECT is_new_user FROM whatsapp_sessions WHERE sender = {ph}", (sender,))
+        row = cur.fetchone()
         return row is None  # jamais vu = nouvel utilisateur
-    finally:
-        conn.close()
+
 
 def mark_user_known(sender: str):
     """Marque un sender comme utilisateur connu."""
-    conn = get_connection()
-    try:
-        with conn:
-            is_pg = "postgresql" in os.getenv("DATABASE_URL", "")
-            if is_pg:
-                conn.execute("""
-                    INSERT INTO whatsapp_sessions (sender, etape, is_new_user)
-                    VALUES (%s, 0, 0)
-                    ON CONFLICT (sender) DO UPDATE SET is_new_user = 0
-                """, (sender,))
-            else:
-                conn.execute("""
-                    INSERT OR REPLACE INTO whatsapp_sessions (sender, etape, is_new_user)
-                    VALUES (?, 0, 0)
-                """, (sender,))
-    finally:
-        conn.close()
+    is_pg = "postgresql" in os.getenv("DATABASE_URL", "")
+    with get_connection() as conn:
+        cur = conn.cursor()
+        if is_pg:
+            cur.execute("""
+                INSERT INTO whatsapp_sessions (sender, etape, is_new_user)
+                VALUES (%s, 0, 0)
+                ON CONFLICT (sender) DO UPDATE SET is_new_user = 0
+            """, (sender,))
+        else:
+            cur.execute("""
+                INSERT OR REPLACE INTO whatsapp_sessions (sender, etape, is_new_user)
+                VALUES (?, 0, 0)
+            """, (sender,))
 
 # ─────────────────────────────────────────────
 # LOGIQUE FLUX SIGNALEMENT
