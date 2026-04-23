@@ -226,7 +226,7 @@ def _call_ai(fields: dict, raw_text: str) -> dict:
     return json.loads(match.group(0))
 
 # ─────────────────────────────────────────────
-# FONCTION PRINCIPALE (CORRIGÉE ET NETTOYÉE)
+# FONCTION PRINCIPALE (CORRIGÉE - SANS ERREUR)
 # ─────────────────────────────────────────────
 
 def analyser_recu(text: str) -> dict:
@@ -236,13 +236,14 @@ def analyser_recu(text: str) -> dict:
     if not text:
         return {"est_recu": False}
 
-    # --- NETTOYAGE CRITIQUE POUR ÉVITER LE CRASH ---
-    # On utilise une regex correcte pour supprimer les balises 
+    # --- NETTOYAGE SÉCURISÉ ---
+    # Supprime les balises sans utiliser de backslash dangereux
     text = re.sub(r"\", "", text)
-    # On retire les guillemets et on nettoie les espaces
+    
+    # Supprime les guillemets et nettoie les espaces
     text = text.replace('"', '').strip()
 
-    # Vérification de la longueur minimale après nettoyage
+    # Vérification de la longueur minimale
     if len(text) < 30:
         return {"est_recu": False}
 
