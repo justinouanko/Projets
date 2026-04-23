@@ -117,7 +117,12 @@ def _format_whatsapp_response(result: dict) -> str:
 # WEBHOOK WHATSAPP — DOIT ÊTRE AVANT StaticFiles
 # ─────────────────────────────────────────────
 
-@app.api_route("/webhook/whatsapp", methods=["GET", "POST"], tags=["WhatsApp"])
+@app.api_route(
+    "/webhook/whatsapp",
+    methods=["GET", "POST"],
+    tags=["WhatsApp"],
+    operation_id="whatsapp_webhook",
+)
 async def whatsapp_webhook(
     request: Request,
     hub_mode: str = Query(None, alias="hub.mode"),
