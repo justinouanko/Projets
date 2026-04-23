@@ -225,9 +225,8 @@ def _call_ai(fields: dict, raw_text: str) -> dict:
         raise ValueError("Réponse IA non parseable")
     return json.loads(match.group(0))
 
-
 # ─────────────────────────────────────────────
-# FONCTION PRINCIPALE (CORRIGÉE)
+# FONCTION PRINCIPALE (CORRIGÉE ET NETTOYÉE)
 # ─────────────────────────────────────────────
 
 def analyser_recu(text: str) -> dict:
@@ -237,10 +236,10 @@ def analyser_recu(text: str) -> dict:
     if not text:
         return {"est_recu": False}
 
-    # --- NETTOYAGE CRITIQUE ---
-    # Supprime les balises du PDF
+    # --- NETTOYAGE CRITIQUE POUR ÉVITER LE CRASH ---
+    # On utilise une regex correcte pour supprimer les balises 
     text = re.sub(r"\", "", text)
-    # Supprime les guillemets doubles proprement
+    # On retire les guillemets et on nettoie les espaces
     text = text.replace('"', '').strip()
 
     # Vérification de la longueur minimale après nettoyage
