@@ -238,7 +238,7 @@ def analyser_recu(text: str) -> dict:
 
     # --- NETTOYAGE SÉCURISÉ ---
     # Supprime les balises sans utiliser de backslash dangereux
-    text = re.sub(r"\", "", text)
+    text = re.sub(r"\\", "", text)
     
     # Supprime les guillemets et nettoie les espaces
     text = text.replace('"', '').strip()
