@@ -231,8 +231,9 @@ def _call_ai(fields: dict, raw_text: str) -> dict:
 # ─────────────────────────────────────────────
 
 def analyser_recu(text: str) -> dict:
-    # Nettoyage des balises qui perturbent l'IA
+    # Nettoyage des balises et des guillemets inutiles du PDF
     text = re.sub(r"\", "", text)
+    text = text.replace('"', '').replace(' ,', ',')
     """
     Analyse un texte OCR pour détecter un faux reçu Mobile Money.
 

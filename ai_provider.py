@@ -44,8 +44,11 @@ Analyse le texte et réponds UNIQUEMENT en JSON valide, sans backticks, sans com
   "category": "broutage" | "mobile_money" | "phishing" | "faux_emploi" | "crypto_invest" | "arnaque_admin" | "autre" | null,
   "explanation": "Explication claire en français pour un citoyen ivoirien (2-3 phrases max)"
 }
-
+## RÈGLE DE NEUTRALITÉ POUR LES REÇUS
+Si le texte analysé est un reçu Mobile Money structuré (présence de Montant, Référence, Date), ne conclus pas à une arnaque SAUF si le texte contient explicitement une menace ou une instruction de paiement suspecte en dehors du reçu lui-même. 
+Un reçu seul n'est pas une preuve d'arnaque.
 Sois précis et contextualise pour la Côte d'Ivoire. Un message anodin doit avoir confidence < 0.2."""
+
 
 
 def _build_user_prompt(text: str, flags: list, rule_score: float) -> str:
