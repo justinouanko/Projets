@@ -26,7 +26,15 @@ from database import (
 )
 from router import run_scan, register_scan_phones
 from response_builder import build_response, build_error_response
-from whatsapp_bot import send_whatsapp_message, download_whatsapp_media, extract_message_content, ACCEPTED_MIME
+from whatsapp_bot import (
+    send_whatsapp_message, download_whatsapp_media,
+    extract_message_content, ACCEPTED_MIME,
+    handle_signalement_flow, get_session,
+    is_new_user, mark_user_known,
+    MSG_BIENVENUE, MSG_MENU,
+    TRIGGER_MENU, TRIGGER_STATS,
+    init_whatsapp_sessions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +49,9 @@ WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "cialert_whatsapp_202
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    init_whatsapp_sessions()  # ← ajouter cette ligne
     print("🚀 CIAlert V2.0 démarrée.")
     yield
-
 
 app = FastAPI(
     title="CIAlert API",
@@ -122,27 +130,61 @@ async def whatsapp_webhook(
         return PlainTextResponse("Forbidden", status_code=403)
 
     # 2. GESTION DU POST (Messages entrants)
-    if request.method == "POST":
+   if request.method == "POST":
         try:
             data = await request.json()
             entry = data["entry"][0]["changes"][0]["value"]
-            
+
             if "messages" not in entry:
                 return {"status": "no_messages"}
 
             message = entry["messages"][0]
-            sender = message["from"]
+            sender  = message["from"]
             text, media_id = extract_message_content(message)
 
+            # Onboarding nouvel utilisateur
+            if is_new_user(sender):
+                mark_user_known(sender)
+                await send_whatsapp_message(sender, MSG_BIENVENUE)
+                return {"status": "ok"}
+
+            text_lower = text.strip().lower() if text else ""
+
+            # Menu
+            if text_lower in TRIGGER_MENU and not media_id:
+                await send_whatsapp_message(sender, MSG_MENU)
+                return {"status": "ok"}
+
+            # Stats
+            if text_lower in TRIGGER_STATS and not media_id:
+                from database import get_global_stats
+                s = get_global_stats()
+                stats_msg = (
+                    f"📊 *Statistiques CIAlert*\n\n"
+                    f"🔍 Analyses totales : {s.get('total_analyses', 0)}\n"
+                    f"🚨 Arnaques détectées : {s.get('total_scams', 0)}\n"
+                    f"📢 Signalements : {s.get('total_reports', 0)}\n"
+                    f"📞 Numéros suspects : {s.get('total_phones', 0)}"
+                )
+                await send_whatsapp_message(sender, stats_msg)
+                return {"status": "ok"}
+
+            # Flux signalement (gère aussi les triggers + étapes en cours)
+            session = get_session(sender)
+            handled = await handle_signalement_flow(sender, text, session)
+            if handled:
+                return {"status": "ok"}
+
+            # Message non supporté (pas de texte ni média)
             if text is None and media_id is None:
                 await send_whatsapp_message(sender, "⚠️ Format non supporté (Texte/Image/PDF uniquement).")
                 return {"status": "unsupported_type"}
 
+            # Téléchargement média
             filename = None
             mime_type = None
             file_data = None
 
-            # Traitement Média
             if media_id:
                 try:
                     file_data, mime_type, filename = await download_whatsapp_media(media_id)
@@ -154,7 +196,7 @@ async def whatsapp_webhook(
                     await send_whatsapp_message(sender, "⚠️ Erreur lors du téléchargement du fichier.")
                     return {"status": "download_error"}
 
-            # Lancement du Scan
+            # Scan
             scan_result = await run_scan(
                 text=text,
                 file_data=file_data,
@@ -167,7 +209,6 @@ async def whatsapp_webhook(
                 await send_whatsapp_message(sender, "⚠️ Analyse impossible pour le moment.")
                 return {"status": "scan_error"}
 
-            # Sauvegarde en base de données
             scan_id = save_scan(
                 raw_input=scan_result["raw_input"],
                 input_type=scan_result["input_type"],
@@ -180,11 +221,14 @@ async def whatsapp_webhook(
                 ai_provider=scan_result.get("ai_provider"),
                 source="whatsapp",
             )
-            
             register_scan_phones(scan_result, scan_id)
 
-            # Envoi de la réponse formatée
             response_text = _format_whatsapp_response(build_response(scan_result, scan_id=scan_id))
+
+            # Si arnaque détectée → proposer de signaler
+            if scan_result.get("is_scam"):
+                response_text += "\n\n📢 Tape *signaler* pour enregistrer un signalement officiel."
+
             await send_whatsapp_message(sender, response_text)
 
         except (KeyError, IndexError) as e:
