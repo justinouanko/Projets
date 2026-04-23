@@ -60,18 +60,11 @@ DATETIME_PATTERN = re.compile(
 
 # Signaux de falsification courants
 FALSIFICATION_SIGNALS = [
-    # Fautes dans les noms de services officiels
     (r"w[a4]ve\b", "Orthographe suspecte du nom Wave"),
     (r"0range", "Orthographe suspecte du nom Orange"),
-    (r"m[t7]n", "Orthographe suspecte du nom MTN"),
-    # Montants ronds suspects (très souvent falsifiés)
-    (r"\b(100000|200000|500000|1000000)\s*(fcfa|xof|f\b)", "Montant rond suspect"),
-    # Mots indiquant une fabrication
+    # Supprimé le montant rond ici
     (r"(test|demo|exemple|sample|fake)", "Mot indicateur de reçu de test"),
-    # Incohérences de format
-    (r"\d{5,}", "Numéro de transaction trop long ou inhabituel"),
 ]
-
 
 # ─────────────────────────────────────────────
 # PRÉ-ANALYSE STATIQUE
