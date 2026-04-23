@@ -48,7 +48,7 @@ PHONE_PATTERN = re.compile(
 
 # Patterns d'ID de transaction (alphanumériques, souvent 8-20 caractères)
 TRANSACTION_ID_PATTERN = re.compile(
-    r"(id|ref|transaction|trans)[:\s#]*([A-Z0-9\-]{6,20})",
+    r"(id|ref|référence|reference|trans)[:\s#]*([A-Z0-9\-\.]{6,25})", 
     re.IGNORECASE
 )
 
