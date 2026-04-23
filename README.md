@@ -3,7 +3,7 @@
 > Plateforme open-source de détection d'arnaques et de désinformation,  
 > conçue pour le contexte ivoirien et ouest-africain.
 
-[![Version](https://img.shields.io/badge/version-2.0.0-orange)](https://github.com/justinouanko/cialert)
+[![Version](https://img.shields.io/badge/version-2.1.0-orange)](https://github.com/justinouanko/cialert)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Railway](https://img.shields.io/badge/deployed-Railway-blueviolet)](https://cialert.up.railway.app)
 
@@ -15,7 +15,7 @@ En Côte d'Ivoire, les arnaques digitales — broutage, faux Mobile Money, phish
 
 ---
 
-## Fonctionnalités V2.0.0
+## Fonctionnalités V2.1.0
 
 | Fonctionnalité | Description |
 |---|---|
@@ -24,6 +24,8 @@ En Côte d'Ivoire, les arnaques digitales — broutage, faux Mobile Money, phish
 | 📎 Analyse de fichiers | PDF, image (OCR), TXT jusqu'à 10 Mo |
 | 📞 Répertoire de numéros | Alerte si numéro déjà signalé |
 | 🤖 Bot Telegram | Analyse texte, photo, document |
+| 💬 Bot WhatsApp | Analyse texte, image, PDF — flux signalement guidé |
+| 🧾 Détecteur de faux reçus | Wave, MTN, Orange, Moov — OCR + analyse IA |
 | 🔄 Feedback utilisateur | Boucle d'amélioration continue |
 | 🌙 Dark mode | Interface claire/sombre persistée |
 | 🔌 IA swappable | Groq / Gemini / Claude via `.env` |
@@ -38,12 +40,14 @@ cialert/
 ├── router.py            # Orchestration des analyses en parallèle
 ├── agent.py             # Détection arnaque (règles + threat intel + IA)
 ├── fake_news_agent.py   # Détection désinformation
+├── receipt_agent.py     # Détection faux reçus Mobile Money
 ├── ai_provider.py       # Couche IA swappable (Groq / Gemini / Claude)
 ├── file_extractor.py    # Extraction texte (PDF, image OCR, TXT)
 ├── phone_registry.py    # Répertoire numéros suspects
 ├── response_builder.py  # Construction réponse frontend
 ├── database.py          # PostgreSQL / SQLite auto-détecté
 ├── bot.py               # Bot Telegram V2.0
+├── whatsapp_bot.py      # Bot WhatsApp (Meta Cloud API)
 └── static/
     └── index.html       # Frontend
 ```
@@ -95,6 +99,11 @@ GOOGLE_SAFE_BROWSING_KEY=...
 # Bot Telegram (optionnel)
 TELEGRAM_BOT_TOKEN=...
 API_URL=https://cialert.up.railway.app
+
+# Bot WhatsApp (optionnel)
+WHATSAPP_TOKEN=...
+WHATSAPP_PHONE_NUMBER_ID=...
+WHATSAPP_VERIFY_TOKEN=...
 ```
 
 ### Lancer en local
@@ -105,6 +114,9 @@ uvicorn main:app --reload --port 8000
 
 # Bot Telegram (dans un autre terminal)
 python bot.py
+
+# Bot WhatsApp (dans un autre terminal)
+python whatsapp_bot.py
 ```
 
 L'interface est accessible sur `http://localhost:8000`.
@@ -152,6 +164,12 @@ curl -X POST https://cialert.up.railway.app/scan \
   "message": "Ce message implique un transfert Mobile Money suspect.",
   "explanation": "Le message demande un envoi d'argent sous prétexte de débloquer un gain.",
   "advice": "Ne répondez pas, ne cliquez sur aucun lien et ne transférez aucun argent.",
+  "receipt_warning": {
+    "is_fake": true,
+    "operateur": "Orange Money",
+    "resume": "ID de transaction invalide, montant incohérent.",
+    "recommandation": "Vérifiez ce reçu directement auprès de l'opérateur."
+  },
   "processing_ms": 412
 }
 ```
@@ -190,6 +208,21 @@ Le bot analyse tout type de contenu directement depuis Telegram.
 
 ---
 
+## Bot WhatsApp
+
+Le bot analyse texte, images et PDF directement depuis WhatsApp.
+
+**Fonctionnalités :**
+- Envoyer un message → analyse immédiate
+- Envoyer une image ou un PDF → OCR + analyse
+- Flux guidé de signalement en 4 étapes
+- Menu interactif, statistiques, onboarding nouveaux utilisateurs
+- Sessions conversationnelles persistées en PostgreSQL
+
+👉 [wa.me/2250565366029](https://wa.me/2250565366029)
+
+---
+
 ## Déploiement Railway
 
 1. Forker le repo et connecter à Railway
@@ -211,7 +244,7 @@ Les contributions sont les bienvenues — en particulier :
 - Nouveaux patterns d'arnaques ivoiriennes
 - Amélioration du prompt IA
 - Traduction en langues locales (dioula, baoulé...)
-- Intégration WhatsApp Business API
+- Dataset labelisé de scams ivoiriens
 
 ```bash
 git checkout -b feature/ma-contribution
