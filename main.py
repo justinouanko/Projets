@@ -49,9 +49,10 @@ WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "cialert_whatsapp_202
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    init_whatsapp_sessions()  # ← ajouter cette ligne
+    init_whatsapp_sessions()
     print("🚀 CIAlert V2.0 démarrée.")
     yield
+
 
 app = FastAPI(
     title="CIAlert API",
@@ -130,7 +131,7 @@ async def whatsapp_webhook(
         return PlainTextResponse("Forbidden", status_code=403)
 
     # 2. GESTION DU POST (Messages entrants)
-   if request.method == "POST":
+    if request.method == "POST":
         try:
             data = await request.json()
             entry = data["entry"][0]["changes"][0]["value"]
@@ -139,7 +140,7 @@ async def whatsapp_webhook(
                 return {"status": "no_messages"}
 
             message = entry["messages"][0]
-            sender  = message["from"]
+            sender = message["from"]
             text, media_id = extract_message_content(message)
 
             # Onboarding nouvel utilisateur
@@ -157,7 +158,6 @@ async def whatsapp_webhook(
 
             # Stats
             if text_lower in TRIGGER_STATS and not media_id:
-                from database import get_global_stats
                 s = get_global_stats()
                 stats_msg = (
                     f"📊 *Statistiques CIAlert*\n\n"
@@ -169,13 +169,13 @@ async def whatsapp_webhook(
                 await send_whatsapp_message(sender, stats_msg)
                 return {"status": "ok"}
 
-            # Flux signalement (gère aussi les triggers + étapes en cours)
+            # Flux signalement
             session = get_session(sender)
             handled = await handle_signalement_flow(sender, text, session)
             if handled:
                 return {"status": "ok"}
 
-            # Message non supporté (pas de texte ni média)
+            # Message non supporté
             if text is None and media_id is None:
                 await send_whatsapp_message(sender, "⚠️ Format non supporté (Texte/Image/PDF uniquement).")
                 return {"status": "unsupported_type"}
@@ -237,6 +237,7 @@ async def whatsapp_webhook(
             logger.error(f"Erreur critique Webhook: {e}")
 
     return {"status": "ok"}
+
 
 # ─────────────────────────────────────────────
 # ENDPOINT PRINCIPAL : POST /scan
