@@ -122,6 +122,7 @@ def _format_whatsapp_response(result: dict) -> str:
     methods=["GET", "POST"],
     tags=["WhatsApp"],
     operation_id="whatsapp_webhook",
+    include_in_schema=False,
 )
 async def whatsapp_webhook(
     request: Request,
