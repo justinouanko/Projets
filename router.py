@@ -37,6 +37,25 @@ PHONE_PATTERN = re.compile(
 LONG_TEXT_THRESHOLD = 300
 
 
+# ─────────────────────────────────────────────
+# DÉTECTION DE CONTENU TECHNIQUE
+# ─────────────────────────────────────────────
+
+LOG_SIGNALS = [
+    "HTTP/1.1", "INFO:", "ERROR:", "WARNING:", "DEBUG:",
+    "railway.app", "100.64.", "uvicorn", "fastapi",
+    "CREATE TABLE", "SELECT ", "INSERT INTO", "ALTER TABLE",
+    "TIMESTAMP", "psycopg2", "PostgreSQL", "SQLite",
+    "Starting Container", "Application startup",
+    "200 OK", "404 Not Found", "500 Internal",
+]
+
+def _is_technical_log(text: str) -> bool:
+    """Retourne True si le texte ressemble à un log ou du code technique."""
+    matches = sum(1 for s in LOG_SIGNALS if s in text)
+    return matches >= 3
+
+
 def detect_input_type(text: str) -> str:
     """
     Retourne le type détecté parmi :
@@ -136,6 +155,36 @@ async def run_scan(
         }
 
     text = text.strip()
+
+    # ── Étape 2c : contenu technique → pas d'arnaque ──────────────────────
+    if _is_technical_log(text):
+        return {
+            "success": True,
+            "raw_input": text,
+            "input_type": "text",
+            "has_file": has_file,
+            "filename": filename,
+            "source": source,
+            "is_scam": False,
+            "confidence": 0.02,
+            "confidence_label": "Probabilité d'arnaque",
+            "risk_level": "FAIBLE",
+            "scam_category": None,
+            "rule_flags": [],
+            "ai_explanation": "Contenu technique identifié (logs, code, traces système). Aucune arnaque détectée.",
+            "ai_provider": None,
+            "ai_used": False,
+            "has_fake_news": False,
+            "fake_news_verdict": None,
+            "fake_news_score": 0,
+            "fake_news_detail": None,
+            "phone_flagged": False,
+            "numbers_found": [],
+            "file_info": extracted_file_info,
+            "receipt_result": None,
+            "is_fake_receipt": False,
+            "processing_ms": int((time.time() - start) * 1000),
+        }
 
     # ── Étape 3 : détection du type ───────────────────────────────────────
     input_type = detect_input_type(text)
